@@ -1,0 +1,25 @@
+/target
+**/*.rs.bk
+.DS_Store
+.memsearch/
+__pycache__/
+# Run outputs are regenerated on demand (deterministic; digest pinned by
+# regression test) — not committed, avoiding stale embedded engine hashes.
+runs/
+# Data packs are fetched-and-built, never committed (05-validation.md).
+# Only checksum manifests under data/packs/ are committed.
+data/**
+!data/packs/
+!data/LICENSE
+!data/PROVENANCE.md
+!data/packs/*.sha256
+# Committed reference data (small, cited, per docs/05 'Committed reference
+# file' rows) — e.g. data/reference/prices-2024.toml.
+!data/reference/
+!data/reference/**
+*.parquet
+docs/manual/*.pdf
+# Regenerable figure traces (multi-MB run outputs); commit the rendered
+# PNG, not the trace CSV it was plotted from.
+figures/*.csv
+.serena/

@@ -1,0 +1,352 @@
+# heating-cop.toml — default COP parameters for the D9 heating overlay
+# (docs/notes/d9-heating-overlay.md rule 4). **ADOPTED** — engine-package
+# review ACCEPT-WITH-NOTES (docs/notes/q5-heating-engine-review.md,
+# 2026-07-03; every value reproduced independently). The `schema` string
+# below and the status flip are that review's condition 1 — the only
+# post-review edits to this file, recorded here.
+# Assembled 2026-07-03 (data engineer, Q5 heating data package). Every
+# value carries its citation; the inertia-constants.toml precedent: cited
+# range, centre used, band stated, so the supervisor/reviewer can overrule.
+# Evidence note: docs/notes/q5-heating-data-report.md.
+# Revised 2026-07-03 actioning the review conditions
+# (docs/notes/q5-heating-data-review.md): RHPP deratings derived and
+# recorded (condition 1), heat quantum restated on the ruled basis
+# (condition 2), ADEME attribution corrected (condition 5).
+# Revised 2026-07-06 (D16, docs/notes/d16-geothermal-source-temperature.md):
+# schema bumped heating-cop-v1 -> heating-cop-v2, adding the [geothermal]
+# section (UK geothermal gradient, cited below at [BUSBY14]/[BT17]) for
+# the depth-continuum source model. EVERY v1 VALUE IS UNTOUCHED — the
+# bump is purely additive; the parse pins in grid-core/tests/heating.rs
+# guard both the old values and the new section.
+#
+# CONVENTIONS
+# - COP curves are quadratics in dT = T_sink - T_source (Kelvin):
+#   COP = rhpp_derating * correction_factor * (c0 + c1*dT + c2*dT^2).
+# - T_sink from the weather-compensated heating curve below (radiator
+#   convention, D9 rule 4); dT floored at min_delta_t_k.
+# - ASHP: T_source = T_pop(t) (data/weather/gb_t2m_pop.parquet, column
+#   t2m_pop). GSHP: T_source = T_ground(t) - gshp.source_offset_k, with
+#   T_ground the D9 rule-4 damped/lagged annual wave of T_pop using
+#   [ground_model] below.
+# - The RHPP field-trial cross-check (D9 edit 6, items i-iv) is DELIVERED
+#   IN THIS DATA PACKAGE (D9 rule 4: "The data package delivers all four
+#   items per technology"): model-implied SPFH2 with rule-3 heat weighting
+#   over the pinned 1985-2024 trace, compared against [rhpp] below; the
+#   resulting one-factor-per-technology deratings are recorded at
+#   rhpp_derating with the derivation in the evidence note (section 4).
+#   The engine package recomputes the implied SPFs under its own tests and
+#   must reproduce these factors (drift guard), not re-derive new ones.
+#
+# SOURCES (retrieved 2026-07-03)
+# [W2H]  Ruhnau, Hirth, Praktiknjo (2019), "Time series of heat demand and
+#   heat pump efficiency for energy system modeling", Scientific Data
+#   6:189. Paper CC BY 4.0. COP curves (quadratics on manufacturer data),
+#   heating curves (eq. 6), 15 K minimum temperature difference, 50 C
+#   water-heating sink, 5 K GSHP brine heat-exchanger offset, correction
+#   factor 0.85 ("set to 0.85, corresponding to field measurements from
+#   Guenther et al.").
+#   https://doi.org/10.1038/s41597-019-0199-y
+#   sha256 dba969a316b12552d323bdc2ff0594b3883eb8a01e4ca381021334a4c45cd4fa
+#   Companion OPSD when2heat data package: CC BY 4.0 (latest 2023-07-27;
+#   code MIT at github.com/oruhnau/when2heat). Both licences recorded per
+#   D9 data requirement 2; parameters here are transcribed from the PAPER.
+# [RHPP] Lowe et al. (RAPID-HPC, UCL), "Final report on analysis of heat
+#   pump data from the Renewable Heat Premium Payment (RHPP) scheme",
+#   BEIS, March 2017 — Table 3-2 (cropped B2 dataset, 292 ASHP / 92 GSHP);
+#   Table 4-1 (counterfactual system efficiencies: gas 85%, oil 84%,
+#   coal 60%, LPG 85%, electricity 100%; EST-sourced).
+#   (c) RAPID-HPC 2017, reproduction with acknowledgement; open
+#   publication on gov.uk.
+#   https://assets.publishing.service.gov.uk/media/5a82b8faed915d74e62374d8/DECC_RHPP_161214_Final_Report_v1-13.pdf
+#   sha256 f9e6e55cffb526098df154a4d474cd5d7b0424d695955077f8e51f5a7582c5f8
+# [BUSBY15] Busby, J. (2015), "UK shallow ground temperatures for ground
+#   coupled heat exchangers", QJEGH 48(3-4) 248-260; NORA open manuscript
+#   (c) NERC/BGS. 100 cm = average horizontal-loop trench depth; measured
+#   100 cm seasonal cycle used for the ruling-A cross-check.
+#   https://nora.nerc.ac.uk/id/eprint/512282/
+#   sha256 b925c311338ad16550b9de32f8cb0689b26c606b76718dd80dc76d42ccaa671f
+# [BUSBY16] Busby, J. (2016), "Thermal conductivity and diffusivity
+#   estimations for shallow geothermal systems", QJEGH 49; NORA open
+#   manuscript (c) NERC/BGS. 60 accepted diffusivity determinations at 56
+#   GB Met Office stations; texture-class medians loam 0.7173, sand
+#   0.9961, clay 1.0295 x1e-6 m2/s; site range 0.3517-2.4691 x1e-6.
+#   https://nora.nerc.ac.uk/id/eprint/513767/
+#   sha256 289cbfa38439086f4a1552dd260385c8974d6f1df29b2f45a15e395497d0e4f3
+# [KA65] Kusuda, T. & Achenbach, P.R. (1965), "Earth temperature and
+#   thermal diffusivity at selected stations in the United States",
+#   ASHRAE Transactions 71(1) — the damped/lagged conduction solution
+#   (damping = exp(-z*sqrt(w/2a)), lag = z/sqrt(2aw)); also Carslaw &
+#   Jaeger. Form restated in [BUSBY15] eq. 3 (Beardsmore & Cull 2001).
+# [BUSBY14] Busby, J. (2014), "Geothermal energy in sedimentary basins
+#   in the UK", Hydrogeology Journal 22(1) 129-141; NORA
+#   open manuscript (c) NERC/BGS (the BUSBY15/16 repository family).
+#   "The average UK geothermal gradient is 26 C km-1, but locally it can
+#   exceed 35 C km-1. Hence, over onshore sedimentary basins there is an
+#   expectation that temperatures at 3000 m depth would be around 88 C."
+#   Basin gradients reported: Cheshire 31.9, Wessex 34.5 C/km.
+#   https://nora.nerc.ac.uk/id/eprint/504718/
+#   sha256 24516a0b9c9119f875b2586d2d1266480ce28a9462d091209a0055e4ac3678d7
+# [BT17] Busby, J. & Terrington, R. (2017), "Assessment of the resource
+#   base for engineered geothermal systems in Great Britain", Geothermal
+#   Energy 5:7. CC BY 4.0. The BGS national temperature-at-depth model
+#   (the source family behind the Geothermal Map of the UK / legacy BGS
+#   geothermal model layers on data.gov.uk); thermal-conductivity depth
+#   correction "calculated assuming a geothermal gradient of 28 C km-1
+#   (Busby et al. 2011)".
+#   https://doi.org/10.1186/s40517-017-0066-z
+#   sha256 d141c3c71ea0210a0e25eaf9d106d3782c8c695572617a171cfdc8c77d03ab13
+# [PC26] an industry correspondent (the company (on file)), personal communication,
+#   thread "private thread", 2026-07-06: 25 C/km as the
+#   conservative working gradient for UK resource screening — adopted as
+#   the CENTRE (below the BGS 26 average: the margin direction flatters
+#   nothing).
+# [ADEME24] ADEME IdF / Region IdF / BRGM joint press communique,
+#   "Geoscan Ile-de-France", 21 Feb 2024, p.3: "dans les reseaux de
+#   chaleur existants en Ile-de-France, 1 kWh d'electricite consomme par
+#   l'installation permet de produire environ 20 kWh de chaleur" —
+#   operating deep-geothermal district heating (Dogger aquifer).
+#   PRODUCTION basis. Context sentence, same page: 59 deep-geothermal
+#   urban heat networks in FRANCE; Ile-de-France concentrates the largest
+#   number of installations and the majority of French geothermal heat
+#   production, 1.69 TWh produced in 2022.
+#   https://www.brgm.fr/sites/default/files/documents/2024-02/communique-geoscan-lancement-cp.pdf
+#   sha256 37dd666ff347fe2ed2db46f91d941393cd5ab1c98c9b717bea0c8a5ba2d0d67f
+# [DECC15] DECC (2015), "Assessment of the Costs, Performance and
+#   Characteristics of UK Heat Networks" — measured distribution losses:
+#   bulk networks average 6% of heat generated (range 3-11%); non-bulk
+#   average 28% (12-43%). OGL v3.
+#   https://assets.publishing.service.gov.uk/media/5a802b44e5274a2e8ab4e95d/heat_networks.pdf
+#   sha256 03a4c690177182ead9756a4c7ae1cf8b5d8adcc8bc406ad4fbda6931d415cef1
+# [ET71] DESNZ, Energy Trends table ET 7.1 (weather), Notes: "base
+#   temperature for heating degree days is 15.5 degrees Celsius" (Met
+#   Office data). OGL v3.
+#   https://assets.publishing.service.gov.uk/media/6a423a477ac6fd9c6a94aac6/ET_7.1_JUN_26.xlsx
+#   sha256 ff5cd5309c448e305fed9422c02dca52a14450f9c7cbb6f04c5ab71b571d7154
+# [ECUK25] DESNZ, Energy Consumption in the UK 2025, End Uses data tables
+#   (published 25 Sep 2025; workbook revision 20 Apr 2026 — revisions
+#   touched U5/U6 services-oil and U3 domestic 2017-2019 only; the 2024
+#   Table U2 rows reproduce the original transcription exactly). OGL v3.
+#   Latest data year 2024; units ktoe, 1 toe = 11.63 MWh.
+#   https://assets.publishing.service.gov.uk/media/69e6362644a079b27f997f8d/ECUK_2025_End_Use_tables_200426.xlsx
+#   sha256 98de3e94430c9e03c5b57ca46baac0bd87473ffe3210321237bf829d3d62e300
+# [ONS24] ONS mid-year population estimates, mid-2024 (series UKPOP,
+#   NIPOP; Nov 2025 release, retrieved 2026-07-03 from the ONS time-series
+#   API): UK 69,281,400; Northern Ireland 1,927,900 (2.78% of UK) ->
+#   GB/UK = 0.972. Licence OGL v3.
+#   https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/timeseries/ukpop/pop
+#   https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/timeseries/nipop/pop
+
+# Mandatory reference-file schema string (docs/03 committed-reference
+# registry; probed by grid_core::heating before the full parse).
+schema = "heating-cop-v2"
+
+[meta]
+status = "adopted"                  # q5-heating-engine-review.md (ACCEPT-WITH-NOTES)
+assembled = "2026-07-03"
+evidence_note = "docs/notes/q5-heating-data-report.md"
+
+[conventions]
+# UK degree-day base temperature [ET71] — D9 rule 3 T_base.
+t_base_c = 15.5
+# dT floor: "a minimum temperature difference of 15 K is introduced,
+# which is in line with the manufacturer data" [W2H].
+min_delta_t_k = 15.0
+
+[heat_quantum]
+# D9 rule-2 defaults: `delivered_heat_twh` and `dhw_fraction` on the
+# review-ruled basis — DELIVERED (useful) HEAT, GB, RECORD-MEAN
+# (q5-heating-data-review.md, basis rulings a/b + condition 2).
+# Full conversion chain (evidence note section 5; all steps cited):
+#   1. ECUK 2025 Table U2, 2024, UK, buildings heat class (space + water,
+#      domestic + services): 37,949.6 ktoe = 441.35 TWh FUEL [ECUK25].
+#   2. Per-fuel useful-heat conversion over the U2 fuel split
+#      [RHPP Table 4-1]: gas 0.85, oil 0.84, solid 0.60, direct electric
+#      1.00; heat sold 1.00 (metered delivered heat at the building
+#      boundary, stated); bioenergy & waste 0.725 = centre of the
+#      Table 4-1 combustion-appliance band [0.60, 0.85] (no biomass row
+#      exists; band leverage +/-4.0 TWh = +/-1.0% on the final quantum).
+#      -> UK 2024 useful: space 303.4 TWh, DHW 72.0 TWh.
+#   3. Weather-normalise the SPACE component to the record mean on the
+#      pinned trace: mean/2024 degree-hours = 50,454/43,707 = x1.1544
+#      (2024 was -13.4% vs the record mean); DHW not normalised.
+#      -> UK record-mean: space 350.3 + DHW 72.0 = 422.3 TWh.
+#   4. UK -> GB by population share x0.972 [ONS24].
+#      -> 410.5 TWh GB record-mean delivered heat.
+# Rule-6(c) consistency (review ruling b): with this convention rule 3's
+# k = quantum_space/DH_mean = space_2024/DH_2024 — the 2024-OBSERVED
+# intensity; the normalisation cancels, which is exactly the fixed-stock
+# stationarity D9 rule 6(c) states.
+delivered_heat_twh = 410.5
+basis = "delivered (useful) heat, GB, record-mean (1985-2024), buildings heat class (space + DHW, domestic + services)"
+# DHW fraction on the same basis: 72.0 / 422.3 = 0.170 (dimensionless,
+# unaffected by the GB scaling; down from 0.192 on the fuel/2024-actual
+# basis — the weather normalisation dilutes the flat DHW share).
+dhw_fraction = 0.170
+
+[sink]
+# Weather-compensated heating curves [W2H eq. 6], T_amb = T_pop(t):
+#   radiators:     T_sink = 40 C - 1.0 * T_amb   (the D9 rule-4 convention)
+#   floor heating: T_sink = 30 C - 0.5 * T_amb   (transcribed; unused v1)
+#   water heating: T_sink = 50 C constant (German field measurements)
+radiator_t0_c = 40.0
+radiator_slope = 1.0
+floor_t0_c = 30.0                   # transcribed for completeness, unused in v1
+floor_slope = 0.5
+dhw_sink_c = 50.0
+
+[ashp]
+# COP = 0.85 * (6.08 - 0.09*dT + 0.0005*dT^2)  [W2H], T_source = air t2m_pop.
+cop_curve = [6.08, -0.09, 0.0005]
+source = "air"
+# When2Heat's own field-calibration correction factor, transcribed with
+# status per D9 edit 6(iii): RETAINED. It is part of the published
+# parameterisation (calibrated on Guenther et al. field measurements);
+# the RHPP cross-check therefore tests the CORRECTED curve, and any RHPP
+# derating below replaces nothing and stacks on nothing beyond this
+# single published factor — no double-derating.
+correction_factor = 0.85
+correction_factor_status = "retained"
+# One-factor-per-technology RHPP derating (D9 edit 6(iv)), derived in
+# this package (evidence note section 4): model-implied SPFH2 with rule-3
+# heat weighting over the pinned trace = 3.221 vs RHPP IQR 2.33-2.95 —
+# OUTSIDE (above), so the derating fires. Convention: TO-MEDIAN,
+# 2.65 / 3.221 = 0.823. Post-derating record COP range 1.79-3.39
+# (from 2.18-4.12). The RHPP glycol caveat (published SPFs over-read by
+# 4-7%) means the true band sits LOWER: to-median is mildly generous to
+# heat pumps; direction stated.
+rhpp_derating = 0.823
+
+[gshp]
+# COP = 0.85 * (10.29 - 0.21*dT + 0.0012*dT^2)  [W2H],
+# T_source = T_ground(t) - source_offset_k.
+cop_curve = [10.29, -0.21, 0.0012]
+source = "ground"
+# "For GSHP, the manufacturer data refer to the brine temperature rather
+# than the ground temperature ... a temperature difference of 5 K is
+# subtracted from the ... ground temperature" [W2H]. Transcribed and
+# RETAINED (dropping it would move the curve off its published
+# convention and flatter GSHP).
+source_offset_k = 5.0
+correction_factor = 0.85
+correction_factor_status = "retained"
+# Derived as for ASHP (evidence note section 4): implied SPFH2 3.838 vs
+# RHPP IQR 2.63-3.14 — OUTSIDE (above); derating TO-MEDIAN
+# 2.81 / 3.838 = 0.732. Post-derating record COP range 1.91-4.61
+# (from 2.61-6.30). The GSHP curve takes the larger haircut — first-order
+# for the ASHP-vs-GSHP ordering, which is why these factors are
+# load-bearing and pinned here rather than left to the engine package.
+rhpp_derating = 0.732
+
+[ground_model]
+# D9 rule-4 undisturbed ground wave (Kusuda-Achenbach [KA65]):
+#   T_ground(t) = mean(T_pop) + A * damping * cos(w*(t - lag) - phi)
+#   damping = exp(-z*sqrt(w/2a)),  lag = z/sqrt(2a*w)
+# Loop depth z: 1.0 m nominal — "100 cm depth, the average depth of a
+# horizontal ground loop collector" [BUSBY15]; D9 band 1.0-1.2 m (GSHPA
+# 2014: 0.8-1.5 m; VDI 4640: 1.2-1.5 m, as cited in [BUSBY15/16]).
+# Shallow-horizontal is the D9-ordered conservative case (deepest winter
+# source depression); 1.0 m also matches the measured cross-check depth.
+loop_depth_m = 1.0
+loop_depth_band_m = [1.0, 1.2]
+# GB soil thermal diffusivity [BUSBY16]: centre = midpoint of the
+# texture-class median band (loam 0.7173e-6 .. clay 1.0295e-6 m2/s);
+# full site range 0.3517e-6..2.4691e-6 recorded for context. The
+# fleet-power-factor precedent: centre used, band stated.
+alpha_m2_s = 8.7e-7
+alpha_band_m2_s = [7.173e-7, 1.0295e-6]
+alpha_site_range_m2_s = [3.517e-7, 2.4691e-6]
+# Derived at centre (recorded 2026-07-03, gb_t2m_pop_report.json — the
+# engine recomputes from z/alpha; these are drift-guard references):
+# damping 0.7130, lag 19.66 days; band (0.6890, 21.66 d) .. (0.7327,
+# 18.08 d). Ruling-A cross-check vs measured 100 cm [BUSBY15]: PASSED —
+# see the evidence note (phase 14 Feb inside the measured 30 Jan-22 Feb
+# window; amplitude -1.15 C / -21% explained by air-for-soil-surface
+# forcing; winter minimum 0.73 C conservative).
+
+[district_geothermal]
+# Constant effective COP on the DELIVERED-HEAT basis (D9 edit 7): heat
+# delivered to buildings / total electrical draw (pumps + auxiliaries),
+# network distribution losses inside the ratio.
+# Derivation: [ADEME24] operating figure 20 kWh_th/kWh_e is on the
+# PRODUCTION basis ("chaleur produite" per electricity consumed by the
+# installation). Delivered-basis conversion with [DECC15] bulk-network
+# distribution losses (avg 6%, max 11%): 20 * (1-0.06..0.11) = 17.8-18.8.
+# Whether the ADEME denominator includes district-network circulation
+# pumping is not stated; the pinned value takes additional margin below
+# the converted range to absorb that ambiguity. Band [12.0, 18.8].
+# Sensitivity: district electrical draw = share*heat/COP_const; across
+# the band it moves between 5.3% and 8.3% of delivered heat — small
+# against heat-pump draws.
+cop_const = 15.0
+cop_const_band = [12.0, 18.8]
+basis = "delivered-heat: heat delivered to buildings / total electrical draw"
+# Edit-7 premise check: COP_const must exceed the heat pumps' maximum
+# record COP. Pre-derating (machine-verified, gb_t2m_pop_report.json):
+# 15.0 vs 6.298 (GSHP max, corrected curve, dT floor 15 K) — 2.38x;
+# band bottom 1.91x. POST-DERATING (the engine-facing curves,
+# rhpp_derating applied): GSHP max = 0.732 * 6.298 = 4.611 -> 15.0 gives
+# 3.25x, band bottom (12.0) 2.60x. The derating only gains the premise
+# margin; the district-lowest ordering limb holds everywhere in the band.
+
+[geothermal]
+# D16 (docs/notes/d16-geothermal-source-temperature.md rule 1): the GSHP
+# source-mean temperature rises with resource depth via the geothermal
+# gradient. Centre 25 C/km [PC26] — the conservative case, deliberately
+# BELOW the BGS band (margin direction stated: it under-credits depth);
+# band [26, 35] C/km = the BGS statements "average UK geothermal gradient
+# is 26 C km-1, but locally it can exceed 35 C km-1" [BUSBY14] and the
+# 28 C km-1 adopted by the BGS national temperature model [BT17]. The
+# fleet-power-factor precedent: centre used, band stated. A specific
+# project's gradient is a scenario question, not a national constant
+# (D16 rule 6) — the per-entry control is `resource_depth_m`.
+gradient_c_per_km = 25.0
+gradient_band_c_per_km = [26.0, 35.0]
+# The DATUM (D16 rule-4 test-1 invariance): the gradient is measured
+# from the committed shallow datum z0 = [ground_model].loop_depth_m, so
+#   T_source_mean(z) = T_surface_mean + gradient * (z - z0),
+# which anchors the continuum bit-identically to the committed D9
+# shallow model at z = z0 (the 0.025 C difference vs a z = 0 datum is
+# far inside the stated band; the surface mean itself is FITTED from
+# the pinned trace, not read from here — recorded for reference: the
+# gb_t2m_pop 1985-2024 fitted surface mean is 10.209 C, amplitude
+# 6.036 K, the ~10.5 C of the D16 note being its round approximation).
+# Kusuda-Achenbach damping/lag recompute at z (the wave is extinguished
+# by ~15 m); the brine offset [gshp].source_offset_k is retained at
+# every depth.
+datum = "gradient measured from the committed shallow datum z0 = [ground_model].loop_depth_m"
+# THE DIRECT-USE HANDOFF (D16 rule 1): when the brine-offset source
+# temperature meets or exceeds the sink temperature, no heat pump is
+# needed — the entry passes heat through at the district effective COP
+# [district_geothermal].cop_const (delivered-heat basis, the ADEME24
+# operating regime). On the depth path the heat-pump COP is CAPPED at
+# cop_const, so the district-lowest ordering (D9 edit 7) can tie but
+# never invert. Each half-hour and component (space / DHW) crosses at
+# its own depth, so the depth continuum is smooth in aggregate; the
+# per-period switch from the floored curve (max 4.611 post-derating) to
+# cop_const = 15.0 is a step — the honest consequence of keeping the
+# calibrated W2H curve and its 15 K floor frozen (D16 rule 3 item 1)
+# rather than inventing an uncalibrated bridge regime.
+
+[rhpp]
+# GB RHPP field-trial SPF bands [RHPP Table 3-2, cropped B2 dataset] —
+# the D9 edit-6 cross-check reference. SPF SYSTEM BOUNDARY NAMED PER
+# NUMBER (SEPEMO): SPFH2 = heat pump + source-side fan/pump electricity
+# (no backup heater, no sink circulation pumps) — the boundary the
+# When2Heat corrected curve approximates (EN 14511-style unit COP) and
+# the EU RES Directive measure; SPFH4 = whole system incl. backup and
+# circulation pumps. Comparison boundary for the cross-check: SPFH2.
+comparison_boundary = "SPFH2"
+ashp_spfh2_median = 2.65            # IQR 2.33-2.95, mean 2.64 (CI 2.60-2.70), N=292
+ashp_spfh2_iqr = [2.33, 2.95]
+gshp_spfh2_median = 2.81            # IQR 2.63-3.14, mean 2.93 (CI 2.80-3.06), N=92
+gshp_spfh2_iqr = [2.63, 3.14]
+ashp_spfh4_median = 2.44            # IQR 2.15-2.67, mean 2.41 (CI 2.37-2.46), N=293
+ashp_spfh4_iqr = [2.15, 2.67]
+gshp_spfh4_median = 2.71            # IQR 2.48-3.02, mean 2.77 (CI 2.66-2.89), N=92
+gshp_spfh4_iqr = [2.48, 3.02]
+# Caveats carried with the band [RHPP p.12]: heat meters calibrated for
+# water not glycol -> SPFs OVER-estimated by 4-7% (correction NOT applied
+# by RAPID-HPC); missing heat-meter data <4% effect on the median SPFH2.
+# Space-heating-only SPFH2 medians (ASHP 2.74, GSHP 2.89) and DHW-only
+# (ASHP 2.31, GSHP 2.71) are in Table 3-2 if the engine cross-check
+# weights services separately.

@@ -1,0 +1,865 @@
+# GB 2024 five-zone scenario — Stage 5 multi-zone activation (docs/04
+# Stage 5; D5 adjudicated zone set: FR, CONT-NW, NO2, DK1, IE-SEM).
+#
+# SCHEMA v7 (2026-07-05, D11 priced dispatch): every zone gains a
+# [zones.pricing] block (its SRMC chain for the priced flow signal;
+# external zones on the flat 2024 EUA mean, prices-eu-2024.toml).
+# dispatch.flow_signal stays at the DEFAULT "scarcity", so this file's
+# dispatch is byte-identical to its v6 form; the priced-ladder A2a
+# acceptance run flips the signal in-memory
+# (grid-adequacy/tests/acceptance_d11_priced_ladder.rs).
+# SCHEMA v6 (2026-07-04, B6 two-zone package): [[links]] gained optional
+# per-direction (`reverse_capacity_gw`) and time-series
+# (`capability_trace`) capability, and [[zones.exogenous_supply]] an
+# optional `scale` — all optional; this file migrates by the version
+# bump alone and sets none of them (its links keep the symmetric
+# pre-v6 semantics byte-for-byte). The per-zone dispatch digests and
+# the links digest are re-verified unmoved by the explicit pins in
+# grid-cli/tests/regression_5zone.rs.
+#
+# SCHEMA v5 (2026-07-03, Q5/D9 heating overlay): the v1–v4
+# [zones.demand.heating] sketch block (enabled = false — engine-inert)
+# is REMOVED; schema v5 replaced it with the heating technology
+# portfolio (docs/notes/d9-heating-overlay.md rule 2). No zone here
+# carries a heating block, so the engine byte-path is untouched — the
+# per-zone dispatch digests are re-verified unmoved by the explicit
+# pins in grid-cli/tests/regression_2024.rs (GB zone c783b306…) and the
+# Stage 5 A2 pinned counts (an explicit acceptance check, not an
+# assumption).
+#
+# The GB zone is the validated 2024 reference (scenarios/
+# gb-2024-reference.toml) with ONE change: the exogenous `net_imports`
+# trace is REMOVED — imports/exports are modelled through the [[links]]
+# matrix by the scarcity-equalising flow rule (grid-adequacy flow
+# module, the normative prose). Everything else (fleet, calibration,
+# wedges, storage, pumped-storage exogenous trace, FUELHH "other") is
+# byte-carried from the reference scenario. The [pricing] block is not
+# carried: the A1 gates need dispatch only (Stage 2 machinery untouched
+# per the work order's non-goals).
+#
+# EXTERNAL-ZONE CONVENTIONS (every number cited; arithmetic shown):
+#
+# 1. Demand = the zone's ENTSO-E A65 actual load trace
+#    (data/packs/entsoe-2024/processed/load_<zone>_2024.parquet, column
+#    load_mw; entsoe-2024.sha256). CONT-NW demand = DE-LU + BE + NL
+#    summed via schema-v4 `extra_profiles`.
+#
+# 2. Thermal availability = CALIBRATION to observed 2024 per-type
+#    generation (A75, aggregation_gen_2024.csv in the same pack):
+#    flat factor = gen_gwh / (A68 capacity x 8784 h) — the GB Stage 1
+#    convention applied per zone. ccgt/ocgt carry NO availability model
+#    (they run to nameplate: the balancing stack, GB convention).
+#    FR nuclear gets a MONTHLY profile (its maintenance seasonality is
+#    the largest single driver of FR scarcity).
+#
+# 3. Weather-driven fleet = per-country CF traces from the cf-eu pack
+#    (data/packs/cf-eu/, manifest cf-eu-1985-2024.sha256; ENTSO-E-
+#    anchored calibration, docs/notes/eu-cf-derivation-report.md).
+#    CAPACITY-SOURCE TABLE (eu-cf-review.md ruling 3 — the pairing
+#    rule; capacities are A68-2024 except the two named exceptions):
+#
+#      zone     tech      capacity   source
+#      FR       onshore   21.701 GW  A68 fr B19
+#      FR       offshore   1.473 GW  ** NOT A68 (stale 1.003 GW): the
+#                                    real end-2024 fleet, Saint-Nazaire
+#                                    480 + Fecamp 497 + Saint-Brieuc
+#                                    496 MW (eu-cf-review ruling 1/3;
+#                                    trace ships UNCALIBRATED) **
+#      FR       solar     17.795 GW  A68 fr B16
+#      CONT-NW  (BE)      3.053 / 2.262 / 8.789 GW  A68 be B19/B18/B16
+#      CONT-NW  (NL)      6.955 / 4.739 / 27.980 GW A68 nl B19/B18/B16
+#                                    ** NL onshore + solar traces are
+#                                    CBS-recalibrated (factors 0.8975 /
+#                                    0.8735, in-band): the eu-cf-review
+#                                    ruling-1 bracket collapsed to this
+#                                    calibrated point; capacities
+#                                    unchanged (NL solar 27,980 MW is
+#                                    the CBS DC panel figure) **
+#      CONT-NW  (DE-LU)   60.049 / 8.456 / 77.016 GW A68 delu B19/B18/B16
+#      DK1                4.112 / 1.601 / 2.738 GW   A68 dk1 B19/B18/B16
+#                                    ** DK1 onshore factor 0.7441 is a
+#                                    band-edge keep — flag carried
+#                                    (eu-cf-review ruling 4) **
+#      IE-SEM   onshore    5.900 GW  ** NOT A68 (stale 3.0 GW): the
+#                                    ~5.9 GW all-island fleet
+#                                    (eu-cf-derivation-report §Anchor
+#                                    faults 2; review ruling 1). The
+#                                    trace ships UNCALIBRATED (raw CF
+#                                    0.285, corroborated ~right); the
+#                                    A75-energy inversion gives 5.34 GW
+#                                    — adopting 5.9 GW reads +1.4 TWh
+#                                    above the A75 anchor, absorbed by
+#                                    the identity wedge below **
+#      IE-SEM   solar      (none)    A68 lists no SEM solar; no anchor
+#                                    exists (A75 B16 starts 2024-11-13).
+#                                    Omitted; SEM solar ~1 GW is inside
+#                                    the identity wedge.
+#
+# 4. THE IDENTITY WEDGE (`extra_demand_gw`, one constant per zone):
+#    each external zone's non-GB interconnections and its generation
+#    categories with no model representation are carried as one
+#    constant closing the zone's 2024 annual energy identity:
+#
+#      wedge = (expected modelled supply) - (A65 load) - (ENTSO-E GB
+#               border net export)
+#
+#    where expected modelled supply = calibrated thermal energies (=A75
+#    observed by construction) + gas/oil at their observed A75 energies
+#    (the model's free variables, assumed observed for the closure —
+#    exactly the GB Stage 1 posture where gas absorbs the residual and
+#    the gate sits on gas) + CF-trace energies (trace annual CF x
+#    paired capacity). Positive wedge = net demand (non-GB exports);
+#    negative = constant supply credit (non-GB imports + unrepresented
+#    generation). A CONSTANT: the model supplies all within-year
+#    structure; only the annual mean is anchored. Stated limitation:
+#    heat-led CHP and transit flows are not flat in reality.
+#
+# 5. LINKS: capacities and availabilities carried from the GB reference
+#    scenario (published nameplates, observed-max cross-checks there).
+#    `loss` per border = the ENTSO-E-vs-NESO metering wedge over gross
+#    import (sending-end vs GB-end; entsoe-stage5-pack-report §3):
+#    FR 0.43/20.66 = 0.021, BE 0.14/5.19 = 0.027, NL 0.09/3.29 = 0.027,
+#    NO2 0.29/10.19 = 0.028, DK1 0.08/5.15 = 0.016. IE links carry the
+#    generic 0.025 mid-range (GB is the sender on ~88 % of periods and
+#    both sources meter the GB end there, so no wedge is observable).
+#    Largest border first (the flow rule dispatches borders in
+#    declaration order — flow-module prose rule 6).
+#
+# 6. NO2 (D5): hydro + load only. The reservoir + pumped-generation
+#    fleet is ONE budgeted dispatchable (schema-v4 `energy_budget`):
+#    weekly (336-period) energy budgets from the zone's observed A75
+#    reservoir + pumped generation (42.56 + 1.11 TWh; pumped RECHARGE
+#    ignored — the pack report §6 inflow-proxy convention, stated).
+#    Run-of-river (7.09 TWh) and NO2 wind (4.52 TWh = 47 % of the NSL
+#    net flow — D5 condition: absorbed explicitly, never dropped) enter
+#    as observed must-take traces from the same A75 file (the
+#    "derived trace" option of the D5 note). Dropped, cited: fossil gas
+#    0.08 TWh (23 MW) and waste 0.04 TWh.
+
+schema_version = 8   # v8: version line only (no heating resource_depth_m set; docs/03 migration)
+name = "GB-2024-5zone"
+description = "GB 2024 reference plus five modelled external zones (FR, CONT-NW, NO2, DK1, IE-SEM) with scarcity-driven interconnector flows — Stage 5 acceptance scenario"
+
+[horizon]
+start = "2024-01-01T00:00:00Z"   # UTC, half-hourly periods (17,568; leap year)
+end   = "2024-12-31T23:30:00Z"
+weather_years = [2024]
+
+# =====================================================================
+# GB — the validated 2024 reference zone, net_imports trace removed.
+# All comments and citations: scenarios/gb-2024-reference.toml.
+# =====================================================================
+
+[[zones]]
+id = "GB"
+
+[zones.demand]
+base_profile = "data/packs/2024/processed/demand_2024.parquet"
+column = "underlying_demand"
+annual_scale = 1.0
+# Station transformer load (reference scenario wedge 1).
+extra_demand_gw = 0.667
+
+# net_imports exogenous trace REMOVED — modelled via [[links]].
+
+[[zones.exogenous_supply]]
+label = "pumped_storage_net"
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = ["ps"]
+reliability = "excluded"
+
+[[zones.exogenous_supply]]
+label = "other"
+# FUELHH "other", 3.35 TWh — load-bearing wedge 4 (reference scenario).
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = ["other"]
+reliability = "firm"
+
+# D11 (schema v7): the zone's SRMC chain for the priced flow signal.
+# GB prices carbon at the reference UKA+CPS step series (no flat
+# override), so the flow rule and the Stage 2 pricing layer agree
+# (D11 review Edit 4). Same recipe set as the reference scenario's
+# top-level [pricing] block.
+[zones.pricing]
+reference = "data/reference/prices-2024.toml"
+
+[zones.pricing.fuel_price.gas]
+path = "data/packs/2024/processed/gas_sap_daily_2024.parquet"
+column = "sap_gbp_per_mwh_hhv"
+
+[zones.pricing.srmc.ccgt]
+fuel = "gas"
+efficiency = "ccgt"
+
+[zones.pricing.srmc.ocgt]
+fuel = "gas"
+efficiency = "ocgt"
+
+[[zones.fleet]]
+technology = "ccgt"
+capacity_gw = 30.0
+
+[[zones.fleet]]
+technology = "ocgt"
+capacity_gw = 1.0
+
+[[zones.fleet]]
+technology = "nuclear"
+capacity_gw = 5.9
+[zones.fleet.availability]
+monthly = [
+  0.5569, 0.6379, 0.6408, 0.8721, 0.8245, 0.7963,
+  0.7736, 0.8839, 0.7991, 0.6869, 0.7114, 0.6935,
+]
+
+[[zones.fleet]]
+technology = "biomass"
+capacity_gw = 3.5
+[zones.fleet.availability]
+flat = 0.6116
+
+[[zones.fleet]]
+technology = "coal"
+capacity_gw = 2.0
+[zones.fleet.availability]
+monthly = [
+  0.11929, 0.11929, 0.11929, 0.11929, 0.11929, 0.11929,
+  0.11929, 0.11929, 0.11929, 0.0, 0.0, 0.0,
+]
+
+[[zones.fleet]]
+technology = "hydro"
+capacity_gw = 1.9
+[zones.fleet.availability]
+flat = 0.2147
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 14.7
+capacity_factor_trace = "data/packs/2024/processed/gb_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 14.4
+capacity_factor_trace = "data/packs/2024/processed/gb_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 18.7
+capacity_factor_trace = "data/packs/2024/processed/gb_solar_cf_2024.parquet"
+
+[[zones.storage]]
+kind = "pumped_hydro"
+power_gw = 2.8
+energy_gwh = 24.0
+round_trip_efficiency = 0.76
+dispatch_order = 1
+
+[[zones.storage]]
+kind = "battery"
+power_gw = 4.7
+energy_gwh = 6.6
+round_trip_efficiency = 0.88
+dispatch_order = 2
+
+# =====================================================================
+# FR — nuclear-dominated exporter; the A2 direction gate lives on this
+# border. Capacities: A68 fr rows of capacity_2024.csv except offshore
+# (capacity-source table above).
+# =====================================================================
+
+[[zones]]
+id = "FR"
+
+[zones.demand]
+base_profile = "data/packs/entsoe-2024/processed/load_fr_2024.parquet"
+column = "load_mw"
+annual_scale = 1.0
+# Identity wedge (header convention 4), RE-ITEMISED a second time
+# (stage-5-review ruling 1, observed-input round ii): FR's non-GB net
+# exports are now the OBSERVED per-period series (extra_profiles entry
+# below, 62.58 TWh — A11 FR<->DE-LU/IT-North/BE/CH/ES borders,
+# entsoe-stage5-pack-report §11), replacing the flat component. The
+# series is SIGNED and the demand loader is sign-transparent: in the
+# January peak-load hours FR is a net IMPORTER (742 negative periods;
+# -528 MW mean in the p99 load slots) and those hours REDUCE FR
+# demand — the demand-conditioned export collapse (7.25 GW all-hours
+# mean falling to 4.49 GW at FR load >= p90, 2.98 GW at >= p95) that
+# the flat wedge missed by ~8 GW exactly where the A2 mismatches
+# lived.
+#
+# Residual flat wedge: supply 521.85 (nuclear 360.10 + reservoir/
+# pumped budget 24.37 + RoR trace 45.89 + biomass 3.10 + coal 0.60 +
+# gas 17.23 + oil 1.39 + CF traces 69.17) - demand (load 429.70 +
+# observed pumping 6.06 + observed non-GB net exports 62.58) - GB
+# border net 19.88 = +3.63 TWh -> +0.413 GW. Composition (signs as
+# model-supply minus reality): unrepresented waste -1.85 TWh and the
+# FR offshore trace-vs-A75 gap -1.28 TWh (uncalibrated trace x
+# 1.473 GW = 2.68 vs A75 3.96) would make it negative; the measured
+# positive residual is therefore net +6.76 TWh of cross-source
+# reconciliation (A65 load perimeter vs A75 transmission-metered
+# generation, and border metering ends) — carried flat, disclosed,
+# small (0.7 % of FR supply).
+extra_demand_gw = 0.413
+extra_profiles = [
+  # Observed pumped-storage pumping consumption (A75 outBiddingZone
+  # series, 6.06 TWh) — the demand-side leg of FR pumped hydro, from
+  # the clean per-type trace (fr_generation_2024; NOT the aggregation
+  # table, whose generic gap repairs invent ~2.5 TWh of B10 during
+  # pumping windows — entsoe-stage5-pack-report §10).
+  { path = "data/packs/entsoe-2024/processed/fr_generation_2024.parquet", column = "hydro_pumped_con" },
+  # Observed non-GB net exports (signed: net export = demand on FR;
+  # net import = negative demand). Annual +62.58 TWh; validated
+  # against energy-charts.info to 0.01 TWh/border (pack report §11).
+  { path = "data/packs/entsoe-2024/processed/fr_external_2024.parquet", column = "fr_non_gb_net_export_mw" },
+]
+
+# D11 (schema v7): per-zone SRMC chain, external-zone basis
+# (docs/notes/d11-per-zone-price-data-report.md): carbon = flat 2024
+# EUA mean £55.01/tCO2 (prices-eu-2024.toml [carbon.eua]; no CPS
+# analogue outside GB; no licence-clean daily EUA series exists, so a
+# flat annual mean is the committed convention); gas = the GB daily
+# SAP series (the licence-forced GB-SAP fallback, ~3.3% of TTF —
+# report §3, best-case gas treatment for the ladder).
+[zones.pricing]
+reference = "data/reference/prices-2024.toml"
+carbon_flat_gbp_per_tco2 = 55.01
+
+[zones.pricing.fuel_price.gas]
+path = "data/packs/2024/processed/gas_sap_daily_2024.parquet"
+column = "sap_gbp_per_mwh_hhv"
+
+[zones.pricing.srmc.ccgt]
+fuel = "gas"
+efficiency = "ccgt"
+
+[zones.pricing.srmc.ocgt]
+fuel = "gas"
+efficiency = "ocgt"
+
+[[zones.fleet]]
+technology = "nuclear"
+capacity_gw = 61.370          # A68 fr B14
+[zones.fleet.availability]
+# Monthly calibration: A75 fr nuclear monthly GWh / (61.37 GW x hours
+# in month). Annual 360.10 TWh -> mean 0.668. The summer maintenance
+# trough is FR's scarcity seasonality.
+monthly = [
+  0.7841, 0.7176, 0.6534, 0.6017, 0.6066, 0.5942,
+  0.6228, 0.6226, 0.6175, 0.6520, 0.7439, 0.7990,
+]
+
+[[zones.fleet]]
+technology = "hydro"
+capacity_gw = 13.852          # A68 fr B12 reservoir 8.791 + B10 pumped 5.061
+# The FR hydro remediation (stage-5-review ruling 1, final
+# adjudication): reservoir + pumped GENERATION as ONE budgeted
+# dispatchable over the zone's observed A75 per-type traces (B12 17.44
+# + B10 6.93 = 24.37 TWh; the pumping leg is the demand-side
+# extra_profiles trace above). Replaces the v1 flat 0.3518 availability
+# over 20.497 GW that overstated FR peak-hour scarcity.
+#
+# GRAIN: window_periods = 1 — the CUMULATIVE-OBSERVED ENVELOPE, per the
+# reviewer's final ruling (weekly is REJECTED for FR: any grain coarser
+# than the period lets the greedy zero-foresight D4 policy flush the
+# window's water early — the weekly variant measurably scored BELOW the
+# flat model it replaced). Ownership language (mandatory, reviewer
+# ruling 1): the envelope is an observation-anchored boundary
+# condition — cumulative modelled release can never run AHEAD of
+# cumulative observed release, but WHEN to release below the envelope
+# remains scarcity-driven, and the GB<->FR flow itself stays emergent.
+# The A2 gate content is the emergent flow direction, not FR hydro
+# seasonality (reproduced by construction). NO2 keeps its weekly grain
+# (its evidence grade; its gates pass) — the budget grain is a
+# per-zone disclosed choice, refined only where a gate red requires it.
+[zones.fleet.energy_budget]
+trace = "data/packs/entsoe-2024/processed/fr_generation_2024.parquet"
+columns = ["hydro_reservoir", "hydro_pumped"]
+window_periods = 1
+
+[[zones.exogenous_supply]]
+label = "fr_ror"
+# Observed A75 run-of-river (45.89 TWh on 11.706 GW A68 B11):
+# must-take, not dispatchable — the NO2 convention. From the clean
+# per-type trace (entsoe-stage5-pack-report §10). gb-grid-margin:
+# hydro is firm.
+path = "data/packs/entsoe-2024/processed/fr_generation_2024.parquet"
+columns = ["hydro_ror"]
+reliability = "firm"
+
+[[zones.fleet]]
+technology = "biomass"
+capacity_gw = 1.408           # A68 fr B01
+[zones.fleet.availability]
+flat = 0.2508                 # A75 fr biomass 3.10 TWh / (1.408 x 8784)
+
+[[zones.fleet]]
+technology = "coal"
+capacity_gw = 1.811           # A68 fr B05 (Cordemais/Saint-Avold)
+[zones.fleet.availability]
+flat = 0.0379                 # A75 fr hard coal 0.60 TWh / (1.811 x 8784)
+
+[[zones.fleet]]
+technology = "ccgt"
+capacity_gw = 12.768          # A68 fr B04; no availability model (GB convention)
+
+[[zones.fleet]]
+technology = "ocgt"
+capacity_gw = 2.971
+# A68 fr B06 fossil_oil mapped to the peaker technology (the D5
+# ruling (e) convention, applied to FR as to IE). Observed 1.39 TWh.
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 21.701          # A68 fr B19
+capacity_factor_trace = "data/packs/cf-eu/fr/fr_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 1.473
+# NOT A68 (stale 1.003 GW): Saint-Nazaire 480 + Fecamp 497 +
+# Saint-Brieuc 496 MW — eu-cf-review rulings 1/3. Trace UNCALIBRATED
+# (physical model right to <1 % against the real fleet).
+capacity_factor_trace = "data/packs/cf-eu/fr/fr_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 17.795          # A68 fr B16
+capacity_factor_trace = "data/packs/cf-eu/fr/fr_solar_cf_2024.parquet"
+
+# =====================================================================
+# CONT-NW — BE + NL + DE-LU aggregate (D5; internal copper plate is the
+# adjudicated v1 convention, ruling c: DE-LU is 70 % of bloc load, so
+# the bloc scarcity signal is effectively German). Fleet = sum of the
+# three countries' A68 rows; per-country CF traces keep the bloc
+# decision revisable (D5 ruling d).
+# =====================================================================
+
+[[zones]]
+id = "CONT-NW"
+
+[zones.demand]
+base_profile = "data/packs/entsoe-2024/processed/load_delu_2024.parquet"
+column = "load_mw"
+annual_scale = 1.0
+# Identity wedge, RECOMPUTED under its documented rule at the CBS NL
+# recalibration (the modelled NL trace energies fell: onshore 19.67 ->
+# 17.66, solar 24.97 -> 21.82 TWh — same convention, new inputs):
+# supply 578.37 (thermal 300.29 + CF traces 278.08) - load 666.42 -
+# GB border net (BE+NL) 5.98 = -94.03 TWh -> -10.704 GW constant
+# supply credit. Components, cited from aggregation_gen_2024:
+# unrepresented generation ~71 TWh (NL "other" 36.96 — the
+# decentralised CHP fleet, A68 capacity listed as 1 MW; DE-LU pumped
+# gen 10.39, waste 6.57, coal-gas 4.65, oil 3.24, other 1.47,
+# other_renewable 0.85, geothermal 0.21; BE waste 2.12, pumped gen
+# 1.43, oil 0.56; NL waste 2.80) plus the bloc's net non-GB imports
+# (Nordics/FR/CH/AT/PL borders, out of scope) ~23 TWh.
+# LIMITATION, stated: heat-led CHP is winter-peaked, not flat.
+extra_demand_gw = -10.704
+extra_profiles = [
+  { path = "data/packs/entsoe-2024/processed/load_be_2024.parquet", column = "load_mw" },
+  { path = "data/packs/entsoe-2024/processed/load_nl_2024.parquet", column = "load_mw" },
+]
+
+# D11 (schema v7): per-zone SRMC chain, external-zone basis
+# (docs/notes/d11-per-zone-price-data-report.md): carbon = flat 2024
+# EUA mean £55.01/tCO2 (prices-eu-2024.toml [carbon.eua]; no CPS
+# analogue outside GB; no licence-clean daily EUA series exists, so a
+# flat annual mean is the committed convention); gas = the GB daily
+# SAP series (the licence-forced GB-SAP fallback, ~3.3% of TTF —
+# report §3, best-case gas treatment for the ladder).
+[zones.pricing]
+reference = "data/reference/prices-2024.toml"
+carbon_flat_gbp_per_tco2 = 55.01
+
+[zones.pricing.fuel_price.gas]
+path = "data/packs/2024/processed/gas_sap_daily_2024.parquet"
+column = "sap_gbp_per_mwh_hhv"
+
+# ccgt only: CONT-NW's coal fleet keeps no SRMC model (below the gas
+# rung in the shared ladder; the gas-only recipe boundary of the data
+# package is stated, not silently substituted — report §4).
+[zones.pricing.srmc.ccgt]
+fuel = "gas"
+efficiency = "ccgt"
+
+[[zones.fleet]]
+technology = "nuclear"
+capacity_gw = 4.415           # A68 be B14 3.929 + nl B14 0.486
+[zones.fleet.availability]
+flat = 0.8539                 # A75 be+nl nuclear 33.12 TWh / (4.415 x 8784)
+
+[[zones.fleet]]
+technology = "biomass"
+capacity_gw = 9.808           # A68 be 0.731 + nl 0.418 + delu 8.660
+[zones.fleet.availability]
+flat = 0.4510                 # A75 biomass 38.86 TWh / (9.808 x 8784)
+
+[[zones.fleet]]
+technology = "hydro"
+capacity_gw = 5.368           # A68 B11+B12: be 0.186 + nl 0.038 + delu 5.145
+[zones.fleet.availability]
+flat = 0.3863                 # A75 hydro 18.22 TWh / (5.368 x 8784)
+
+[[zones.fleet]]
+technology = "coal"
+capacity_gw = 40.788          # A68 delu B02 18.365 + B05 18.411 + nl B05 4.012
+[zones.fleet.availability]
+# Flat calibration: A75 coal (DE lignite 70.99 + DE hard 27.34 + NL
+# hard 10.39 TWh) / (40.788 x 8784). CAVEAT: the engine's fixed merit
+# order places coal before ccgt (the GB Stage 1 calibration expedient);
+# for the 2024 continental merit that ordering is contestable — the
+# calibrated cap bounds the damage, and the A3/A4 gates measure it.
+flat = 0.3034
+
+[[zones.fleet]]
+technology = "ccgt"
+capacity_gw = 61.798          # A68 B04: be 6.995 + nl 18.476 + delu 36.327
+
+# --- per-country weather-driven entries (distinct ids so each carries
+#     its own country trace; all must-take) ---
+
+[[zones.fleet]]
+technology = "onshore_wind_be"
+capacity_gw = 3.053           # A68 be B19
+capacity_factor_trace = "data/packs/cf-eu/be/be_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "offshore_wind_be"
+capacity_gw = 2.262           # A68 be B18
+capacity_factor_trace = "data/packs/cf-eu/be/be_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar_be"
+capacity_gw = 8.789           # A68 be B16
+capacity_factor_trace = "data/packs/cf-eu/be/be_solar_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "onshore_wind_nl"
+capacity_gw = 6.955           # A68 nl B19 (= CBS national onshore capacity)
+capacity_factor_trace = "data/packs/cf-eu/nl/nl_onshore_cf_2024.parquet"
+# CBS-recalibrated (factor 0.8975, in-band; annual CF 0.289): the
+# eu-cf-review ruling-1 sensitivity bracket collapsed to this
+# calibrated point when the A4-BE verdict flipped inside it at the
+# w=1 grain (stage-5-review addendum).
+
+[[zones.fleet]]
+technology = "offshore_wind_nl"
+capacity_gw = 4.739           # A68 nl B18 (calibrated, in-band)
+capacity_factor_trace = "data/packs/cf-eu/nl/nl_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar_nl"
+capacity_gw = 27.980
+# A68 nl B16 — which the CBS recalibration identified as the CBS DC
+# panel capacity figure, so the capacity stands.
+capacity_factor_trace = "data/packs/cf-eu/nl/nl_solar_cf_2024.parquet"
+# CBS-recalibrated (factor 0.8735, in-band; annual CF 0.0888): bracket
+# collapsed to the calibrated point (see onshore_wind_nl note).
+
+[[zones.fleet]]
+technology = "onshore_wind_delu"
+capacity_gw = 60.049          # A68 delu B19
+capacity_factor_trace = "data/packs/cf-eu/de/de_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "offshore_wind_delu"
+capacity_gw = 8.456           # A68 delu B18
+capacity_factor_trace = "data/packs/cf-eu/de/de_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar_delu"
+capacity_gw = 77.016          # A68 delu B16
+capacity_factor_trace = "data/packs/cf-eu/de/de_solar_cf_2024.parquet"
+
+# =====================================================================
+# NO2 — hydro + load only (D5): the seasonal-budget reservoir model.
+# =====================================================================
+
+[[zones]]
+id = "NO2"
+
+[zones.demand]
+base_profile = "data/packs/entsoe-2024/processed/load_no2_2024.parquet"
+column = "load_mw"
+annual_scale = 1.0
+# Identity wedge: supply 55.28 (budget 43.67 + RoR 7.09 + wind 4.52) -
+# load 36.08 - NSL net 9.92 = +9.29 TWh -> +1.057 GW: NO2's non-GB net
+# exports (NordLink/Skagerrak/NorNed and internal NO1/NO5 transfers,
+# out of scope) net of the dropped fossil gas 0.08 + waste 0.04 TWh.
+extra_demand_gw = 1.057
+
+# D11 (schema v7): per-zone SRMC chain, external-zone basis
+# (docs/notes/d11-per-zone-price-data-report.md): carbon = flat 2024
+# EUA mean £55.01/tCO2 (prices-eu-2024.toml [carbon.eua]; no CPS
+# analogue outside GB; no licence-clean daily EUA series exists, so a
+# flat annual mean is the committed convention); gas = the GB daily
+# SAP series (the licence-forced GB-SAP fallback, ~3.3% of TTF —
+# report §3, best-case gas treatment for the ladder).
+[zones.pricing]
+reference = "data/reference/prices-2024.toml"
+carbon_flat_gbp_per_tco2 = 55.01
+
+# No priced technology: NO2 is ~100% hydro; its price is a water
+# value this fuel-SRMC recipe does NOT capture (report §4 — the wedge
+# never binds; consistent with the Module 5 NO2-flat result). Its
+# rungs price at the £0 must-take floor under the ladder.
+
+[[zones.fleet]]
+technology = "hydro"
+capacity_gw = 10.338          # A68 no2 B12 reservoir 9.816 + B10 pumped 0.522
+# The D5 seasonal-budget reservoir model (engine: grid-adequacy
+# multizone module, step 4): weekly (336-period) energy budgets = the
+# zone's OBSERVED 2024 reservoir + pumped generation (A75; 42.56 +
+# 1.11 TWh; pumped recharge ignored — the pack report §6 inflow-proxy
+# convention). Dispatch within the budget is greedy against zone
+# scarcity (which NSL couples to GB's). NEAR-TAUTOLOGY, owned (D5
+# ruling b / docs/04 A3): with observed-generation budgets the hydro
+# seasonality is reproduced by construction — the A3 gate content is
+# the FLOW structure, not the budget shape.
+[zones.fleet.energy_budget]
+trace = "data/packs/entsoe-2024/processed/no2_generation_2024.parquet"
+columns = ["hydro_reservoir", "hydro_pumped"]
+window_periods = 336
+
+[[zones.exogenous_supply]]
+label = "no2_ror"
+# Observed A75 run-of-river (7.09 TWh on 1.409 GW): must-take, not
+# dispatchable. gb-grid-margin: hydro is firm.
+path = "data/packs/entsoe-2024/processed/no2_generation_2024.parquet"
+columns = ["hydro_ror"]
+reliability = "firm"
+
+[[zones.exogenous_supply]]
+label = "no2_wind"
+# NO2 wind 4.52 TWh on 1.447 GW — 12.5 % of NO2 load and 47 % of the
+# NSL net flow. D5 condition: absorbed EXPLICITLY in the zone energy
+# balance — carried as the observed A75 trace (the "derived trace"
+# option of the D5 note), never silently dropped. v1 has no NO2 wind
+# CF derivation (weather pack covers NO2 for temperature only).
+path = "data/packs/entsoe-2024/processed/no2_generation_2024.parquet"
+columns = ["wind_onshore"]
+reliability = "variable"
+
+# =====================================================================
+# DK1 — wind-heavy Viking counterparty. A68 lists ONLY wind/solar for
+# DK1 (no thermal rows), so the zone is traces + load + wedge.
+# =====================================================================
+
+[[zones]]
+id = "DK1"
+
+[zones.demand]
+base_profile = "data/packs/entsoe-2024/processed/load_dk1_2024.parquet"
+column = "load_mw"
+annual_scale = 1.0
+# Identity wedge: trace supply 17.92 - load 22.59 - Viking net 3.74 =
+# -8.40 TWh -> -0.957 GW constant supply credit. Components, cited
+# (aggregation_gen_2024 dk1): local thermal with no A68 capacity rows
+# (hard coal 2.27, biomass 1.70, gas 1.28, waste 0.50, oil 0.16 TWh =
+# 5.93 TWh — the decentralised/central CHP fleet) plus DK1's net
+# non-GB imports (Skagerrak/Konti-Skan/COBRA/DE borders, out of scope)
+# ~2.5 TWh. LIMITATION, stated: DK1 is a transit hub; a constant
+# cannot transit, so Viking's modelled flow is DK1's own weather
+# balance only (its r ~ 0 vs GB wind is a reported diagnostic, not a
+# gate — docs/04 A3).
+extra_demand_gw = -0.957
+
+# D11 (schema v7): per-zone SRMC chain, external-zone basis
+# (docs/notes/d11-per-zone-price-data-report.md): carbon = flat 2024
+# EUA mean £55.01/tCO2 (prices-eu-2024.toml [carbon.eua]; no CPS
+# analogue outside GB; no licence-clean daily EUA series exists, so a
+# flat annual mean is the committed convention); gas = the GB daily
+# SAP series (the licence-forced GB-SAP fallback, ~3.3% of TTF —
+# report §3, best-case gas treatment for the ladder).
+[zones.pricing]
+reference = "data/reference/prices-2024.toml"
+carbon_flat_gbp_per_tco2 = 55.01
+
+# No priced technology: DK1's modelled fleet is entirely
+# weather-driven (its local thermal lives in the identity wedge), so
+# nothing dispatches on an SRMC here.
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 4.112           # A68 dk1 B19
+capacity_factor_trace = "data/packs/cf-eu/dk1/dk1_onshore_cf_2024.parquet"
+# Calibration factor 0.7441 is a band-edge keep (old-stock fleet vs
+# modern-fleet power curve) — flag carried per eu-cf-review ruling 4.
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 1.601           # A68 dk1 B18
+capacity_factor_trace = "data/packs/cf-eu/dk1/dk1_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 2.738           # A68 dk1 B16
+capacity_factor_trace = "data/packs/cf-eu/dk1/dk1_solar_cf_2024.parquet"
+
+# =====================================================================
+# IE-SEM — all-island single market; predominantly a GB export sink
+# (GB exports in 87.7 % of 2024 periods).
+# =====================================================================
+
+[[zones]]
+id = "IE-SEM"
+
+[zones.demand]
+base_profile = "data/packs/entsoe-2024/processed/load_ie_2024.parquet"
+column = "load_mw"
+annual_scale = 1.0
+# Identity wedge: supply 27.89 (gas 10.42 + coal 1.08 + oil 1.62 +
+# onshore 5.9 GW x CF 0.285 = 14.77 with the review-directed capacity;
+# note the trace x 5.9 GW reads +1.4 TWh above the A75 13.37 anchor) -
+# load 40.89 - GB border net (-5.17, i.e. +5.17 TWh INTO IE) =
+# -7.82 TWh -> -0.890 GW constant supply credit. Components, cited:
+# unrepresented A75 categories (hydro RoR 0.70, peat 0.46, pumped gen
+# 0.33, other 0.03 TWh) plus SEM embedded generation invisible to the
+# platform (solar ~1 GW, small CHP) — the A65-load-vs-A75-generation
+# gap. GB-only interconnection: no non-GB term (Celtic not yet
+# commissioned).
+extra_demand_gw = -0.890
+
+# D11 (schema v7): per-zone SRMC chain, external-zone basis
+# (docs/notes/d11-per-zone-price-data-report.md): carbon = flat 2024
+# EUA mean £55.01/tCO2 (prices-eu-2024.toml [carbon.eua]; no CPS
+# analogue outside GB; no licence-clean daily EUA series exists, so a
+# flat annual mean is the committed convention); gas = the GB daily
+# SAP series (the licence-forced GB-SAP fallback, ~3.3% of TTF —
+# report §3, best-case gas treatment for the ladder).
+[zones.pricing]
+reference = "data/reference/prices-2024.toml"
+carbon_flat_gbp_per_tco2 = 55.01
+
+[zones.pricing.fuel_price.gas]
+path = "data/packs/2024/processed/gas_sap_daily_2024.parquet"
+column = "sap_gbp_per_mwh_hhv"
+
+[zones.pricing.srmc.ccgt]
+fuel = "gas"
+efficiency = "ccgt"
+
+# The IE "ocgt" entry is the oil peaker fleet (D5 ruling e) priced at
+# the gas-OCGT SRMC — the data package's stated gas-only-recipe
+# approximation (report §4/§5); an unpriced rung ABOVE the priced gas
+# rung would invert the ladder's SRMC-proxy order, which the priced
+# curve validation refuses.
+[zones.pricing.srmc.ocgt]
+fuel = "gas"
+efficiency = "ocgt"
+
+[[zones.fleet]]
+technology = "ccgt"
+capacity_gw = 5.814           # A68 ie B04
+
+[[zones.fleet]]
+technology = "coal"
+capacity_gw = 1.369           # A68 ie B05 (Moneypoint)
+[zones.fleet.availability]
+flat = 0.0898                 # A75 ie hard coal 1.08 TWh / (1.369 x 8784)
+
+[[zones.fleet]]
+technology = "ocgt"
+capacity_gw = 1.588
+# A68 ie B06 fossil_oil 1.59 GW mapped to a peaker technology — D5
+# ruling (e): material for a ~4.7 GW-average-load zone, never silently
+# dropped. Observed 1.62 TWh (distillate/HFO units run as peakers and
+# tertiary reserve).
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 5.900
+# NOT A68 (stale 3.0 GW) — the ~5.9 GW all-island fleet; see the
+# capacity-source table in the header (eu-cf-review rulings 1/3).
+capacity_factor_trace = "data/packs/cf-eu/ie/ie_onshore_cf_2024.parquet"
+
+# =====================================================================
+# Links — capacities/availabilities from the GB reference scenario;
+# losses per header convention 5. Largest border first (flow-rule
+# border order). Counterparty zones are now DECLARED zones: the matrix
+# is live.
+# =====================================================================
+
+[[links]]                       # IFA — nameplate 2.0 GW
+name = "IFA"
+from = "GB"
+to = "FR"
+capacity_gw = 2.0
+availability = 0.95
+loss = 0.021
+
+[[links]]                       # IFA2 — 1.0 GW
+name = "IFA2"
+from = "GB"
+to = "FR"
+capacity_gw = 1.0
+availability = 0.95
+loss = 0.021
+
+[[links]]                       # ElecLink — 1.0 GW
+name = "ElecLink"
+from = "GB"
+to = "FR"
+capacity_gw = 1.0
+availability = 0.95
+loss = 0.021
+
+[[links]]                       # Nemo — 1.0 GW (BE leg of CONT-NW)
+name = "Nemo"
+from = "GB"
+to = "CONT-NW"
+capacity_gw = 1.0
+availability = 0.95
+loss = 0.027
+
+[[links]]                       # BritNed — 1.0 GW (NL leg of CONT-NW)
+name = "BritNed"
+from = "GB"
+to = "CONT-NW"
+capacity_gw = 1.0
+availability = 0.95
+loss = 0.027
+
+[[links]]                       # NSL — 1.4 GW
+name = "NSL"
+from = "GB"
+to = "NO2"
+capacity_gw = 1.4
+availability = 0.95
+loss = 0.028
+
+[[links]]                       # Viking — 1.4 GW
+name = "Viking"
+from = "GB"
+to = "DK1"
+capacity_gw = 1.4
+availability = 0.95
+loss = 0.016
+
+[[links]]                       # Moyle — 0.5 GW
+name = "Moyle"
+from = "GB"
+to = "IE-SEM"
+capacity_gw = 0.5
+availability = 0.95
+loss = 0.025
+
+[[links]]                       # EWIC — 0.5 GW
+name = "EWIC"
+from = "GB"
+to = "IE-SEM"
+capacity_gw = 0.5
+availability = 0.95
+loss = 0.025
+
+[[links]]                       # Greenlink — commissioning during 2024
+name = "Greenlink"
+from = "GB"
+to = "IE-SEM"
+capacity_gw = 0.5
+availability = 0.0
+loss = 0.025
+
+[dispatch]
+policy = "rule_based"

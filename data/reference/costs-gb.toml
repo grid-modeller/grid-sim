@@ -1,0 +1,660 @@
+# ============================================================================
+# Stage 7 GB cost reference (data engineer, 2026-07-03) — ADOPTED.
+# Reviewer adjudicated ACCEPT-WITH-NOTES (docs/notes/stage7-cost-inputs-review.md,
+# 2026-07-03); ALL TWELVE CONDITIONS AND NOTES x2-x4 APPLIED IN THIS REVISION.
+# Pinned into docs/04 Stage 7 (2026-07-03, supervisor, citing the review);
+# this file is the consumed reference for all Stage 7 cost lines, read by
+# the strict costs-reference-v1 parser (grid_core::costs_reference; schema
+# note in docs/03-domain-model.md). Any change to this file's shape or
+# numbers requires a schema-string bump and re-review; the parser's pinned
+# regression tests (grid-core/tests/costs_reference.rs) fail on silent edits.
+# Quarantined rows carry machine-readable quotable/verified flags, which are
+# LOAD-BEARING and propagate to result metadata: NSL/NeuConnect/Greenlink
+# (condition 9, still quarantined); the OCHT publication_gate and the
+# nuclear bracket_rule propagate the same way. The battery split's
+# condition-3 quarantine was LIFTED 2026-07-06 as a reviewed act (condition
+# 3.i discharged against the NREL primary — see the row); caveats 3.ii and
+# 3.iii on that row REMAIN in force and still propagate.
+# Evidence note: docs/notes/stage7-cost-inputs-report.md.
+#
+# Conventions:
+# - Price base: real 2024 GBP throughout ("gbp2024" in field names where a
+#   conversion was applied). Conversions use the ONS GDP deflator (2024=100)
+#   as tabulated in the DESNZ FFPA 2025 workbook ([deflator] below).
+# - Capex basis: OVERNIGHT component costs (pre-development + construction;
+#   site infrastructure separate). IDC is NOT in these numbers — DESNZ applies
+#   the hurdle rate over the published build phasing. Per review condition 11
+#   the central phasing arrays are transcribed per technology
+#   (predev_phasing / build_phasing, fractions summing to 1.0): the rule-4
+#   annualiser must escalate capex over this phasing at the same WACC, or
+#   report the build-time effect as a named adjustment (evidence note §1).
+# - capex ranges are [low, central, high] as published (low capex paired
+#   with low pre-development cost).
+# - Storage is split per D8 rule 1.3: power (£/kW) and energy (£/kWh) legs
+#   priced separately; hydrogen legs per the D4 per-leg convention.
+# ============================================================================
+
+schema = "costs-reference-v1"
+price_base = "real 2024 GBP"
+assembled = 2026-07-03
+
+# ----------------------------------------------------------------------------
+# Deflator: ONS GDP deflator at market prices, 2024 = 100, as published in
+# the DESNZ Fossil Fuel Price Assumptions 2025 data workbook ("UK GDP
+# Deflator" sheet, source ONS; OGL v3.0). Operational series going forward:
+# HM Treasury "GDP deflators at market prices, and money GDP" (quarterly).
+# Reviewer-verified to 4 dp against the re-fetched workbook.
+# ----------------------------------------------------------------------------
+[deflator]
+series = "ONS GDP deflator at market prices (2024 = 100), via DESNZ FFPA 2025 workbook"
+licence = "OGL v3.0"
+to_2024 = { y2012 = 1.3873, y2014 = 1.3410, y2020 = 1.1714, y2021 = 1.1731, y2023 = 1.0384, y2025 = 0.9692 }
+
+# ----------------------------------------------------------------------------
+# Sources. All retrieved 2026-07-03.
+# ----------------------------------------------------------------------------
+[sources.egc2025]
+title = "Electricity Generation Costs 2025 + Annex A (published 14 Jan 2026; real 2024 GBP)"
+url = "https://www.gov.uk/government/publications/electricity-generation-costs-2025"
+annex_a = "https://assets.publishing.service.gov.uk/media/69d8efec96c86b7513170229/annex-a-additional-estimates-and-key-assumptions-2025.xlsx"
+licence = "OGL v3.0"
+
+[sources.egc2023]
+title = "Electricity Generation Costs 2023 + Annex A (real 2021 GBP) — biomass only (not updated in 2025 edition)"
+url = "https://www.gov.uk/government/publications/electricity-generation-costs-2023"
+annex_a = "https://assets.publishing.service.gov.uk/media/6555cb6d046ed4000d8b99bb/annex-a-additional-estimates-and-key-assumptions.xlsx"
+licence = "OGL v3.0"
+
+[sources.egc2016]
+title = "BEIS Electricity Generation Costs, Nov 2016 (real 2014 GBP) — nuclear PWR FOAK; still DESNZ's published nuclear assumption set"
+url = "https://assets.publishing.service.gov.uk/media/5a8155f2e5274a2e87dbd11b/BEIS_Electricity_Generation_Cost_Report.pdf"
+licence = "OGL v3.0"
+
+[sources.cepa_hurdle_2024]
+title = "CEPA for DESNZ, Hurdle rate estimates for electricity sector technologies (pre-tax real CPI, vanilla, whole-life, 50% gearing, at 31 Dec 2024)"
+url = "https://assets.publishing.service.gov.uk/media/68cd1d818c44a661b4995d9f/cepa-desnz-hurdle-rates-electricity.pdf"
+licence = "OGL v3.0"
+
+[sources.ofgem_riio3_fd]
+# Table 16 (re-verified 2026-07-03): ET at 55% notional gearing —
+# WACC allowance (REAL, CPIH): NGET 4.46% / SPT 4.58% / SHET 4.67%
+# (gas sectors 4.28% at 60% gearing); cost of equity allowance (real) 5.70%.
+# The 5.53-5.74% figures in the same table are the SEMI-NOMINAL WACC
+# (real equity + semi-nominal debt, Ofgem's cash-return construction, ¶4.3)
+# — NOT a real rate. [Corrected per review condition 1.]
+title = "Ofgem RIIO-3 Final Determinations, Finance Annex (4 Dec 2025), Table 16 — allowed REAL (CPIH) WACC for ET: 4.46-4.67%"
+url = "https://www.ofgem.gov.uk/sites/default/files/2025-12/RIIO-3-Final-Determinations-Finance-Annex.pdf"
+licence = "Ofgem publication; quoted with attribution"
+
+[sources.ffpa2025]
+title = "DESNZ Fossil Fuel Price Assumptions 2025 (3 Feb 2026; real 2024 prices) + data tables"
+url = "https://www.gov.uk/government/publications/fossil-fuel-price-assumptions-2025"
+data = "https://assets.publishing.service.gov.uk/media/69693a291c8a70fc0a3b0434/Fossil_Fuel_Price_Assumptions_2025_publication.xlsx"
+licence = "OGL v3.0"
+
+[sources.traded_carbon_2025]
+title = "DESNZ Traded carbon values used for modelling purposes, 2025 (3 Feb 2026; real 2025 GBP — converted x0.9692 below)"
+url = "https://www.gov.uk/government/publications/traded-carbon-values-used-for-modelling-purposes-2025/traded-carbon-values-used-for-modelling-purposes-2025"
+licence = "OGL v3.0"
+
+[sources.beis_storage_2018]
+title = "Mott MacDonald for BEIS, Storage cost and technical assumptions (Aug 2018; ALL COSTS 2012 PRICES) — only open GB source supporting a battery power/energy split; STALE"
+url = "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/910261/storage-costs-technical-assumptions-2018.pdf"
+licence = "OGL v3.0"
+
+[sources.hpc2021]
+title = "DESNZ/BEIS Hydrogen Production Costs 2021 + annex (real 2020 GBP; capex in GBP per kW H2 HHV output)"
+url = "https://www.gov.uk/government/publications/hydrogen-production-costs-2021"
+annex = "https://assets.publishing.service.gov.uk/media/611a706ed3bf7f63a7b29216/Hydrogen_Production_Cost_2021_Annex.xlsx"
+licence = "OGL v3.0"
+
+[sources.h2_ts_2023]
+title = "DESNZ Hydrogen Transport and Storage Cost Report (Dec 2023; levelised GBP/kg, 2023 prices)"
+url = "https://assets.publishing.service.gov.uk/media/659e600b915e0b00135838a6/hydrogen-transport-and-storage-cost-report.pdf"
+licence = "OGL v3.0"
+
+[sources.szc_fid]
+title = "DESNZ press release, Sizewell C final investment decision (22 Jul 2025): target construction cost ~GBP 38bn (2024 prices), 3.2 GW"
+url = "https://www.gov.uk/government/news/sizewell-c-gets-green-light-with-final-investment-decision"
+licence = "OGL v3.0"
+
+[sources.eac_fy2025]
+title = "NESO EAC auction results, FY2025 archive — same pinned snapshot as response-holdings-2025.toml"
+sha256 = "901fd1ad49cf9c1d3a5803b0d7c6a1466cbe429bb4a92c5a333bbce60bafb3cf"
+dataset_page = "https://www.neso.energy/data-portal/eac-auction-results"
+licence = "NESO Open Data Licence (attribution: 'Supported by National Energy SO Open Data')"
+
+[sources.ghg_cf_2024]
+title = "UK Government GHG Conversion Factors 2024, condensed set v1.1 (Fuels/Bioenergy sheets, gross CV)"
+url = "https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2024"
+licence = "OGL v3.0"
+
+[sources.viking_link]
+title = "National Grid press release, Viking Link commercial operations (Dec 2023): GBP 1.7bn, 1.4 GW, 765 km"
+url = "https://www.nationalgrid.com/national-grid-announces-commercial-operations-viking-link-worlds-longest-land-and-subsea"
+licence = "company publication; facts quoted with attribution, not redistributed"
+
+# ----------------------------------------------------------------------------
+# WACC (D8 rule 4). Real rates, applied UNIFORMLY by default.
+# low  = Ofgem RIIO-3 FD allowed REAL (CPIH) WACC for electricity
+#        transmission, Table 16 "WACC allowance (real)": 4.46-4.67% at 55%
+#        gearing — the regulated-asset financing floor in real terms.
+#        [Re-anchored per review condition 1: the previous 5.5/5.6 figure was
+#        Ofgem's SEMI-NOMINAL WACC (5.53-5.74%), a different object ~110 bp
+#        above the real allowance — a wedge larger than the CPI/CPIH wedge.]
+# central = CEPA lead scenario, established CfD-class generation (L-M band,
+#        pre-tax real CPI vanilla, 50% gearing).
+# high = CEPA M-H band (nascent / merchant-exposed).
+# Basis caveats: CEPA is pre-tax real-CPI vanilla; Ofgem real WACC is
+# CPIH-real vanilla with a post-tax equity component. The set is a labelled
+# sensitivity spread over cited GB financing evidence, not a like-for-like
+# composite — quoted as such on every artefact (evidence note §5).
+# ----------------------------------------------------------------------------
+[wacc]
+real_low = 0.045
+real_central = 0.075
+real_high = 0.100
+anchors_unrounded = { low_range = [0.0446, 0.0467], central = 0.076, high = 0.101 }
+sources = ["ofgem_riio3_fd", "cepa_hurdle_2024"]
+
+# Per-technology rates — LABELLED SENSITIVITY ONLY (D8 rule 4: never the
+# headline). CEPA lead scenario (mid-point, 50% gearing, pre-tax real CPI).
+# All 14 assignments reviewer-verified against CEPA Table E.1.
+[wacc.per_tech_sensitivity]
+source = "cepa_hurdle_2024"
+solar_pv = 0.076
+onshore_wind = 0.076
+offshore_wind_fixed = 0.089
+offshore_wind_floating = 0.114
+biomass_unabated = 0.089
+nuclear_large_rab = 0.076
+gas_unabated = 0.089
+battery_li_ion_cm = 0.089
+pumped_hydro_cap_floor = 0.089
+ldes_novel = 0.101
+hydrogen_ccht_ocht_mature = 0.089
+hydrogen_ccht_ocht_emerging = 0.101
+hydrogen_electrolyser = 0.101
+interconnector_cap_floor = 0.076
+
+# ----------------------------------------------------------------------------
+# Generation technologies. capex = pre-development + construction, overnight,
+# GBP/kW. infrastructure_gbp_per_kw = source per-plant GBP'000 / plant MW.
+# fom/insurance/connection = GBP/MW/year. vom = GBP/MWh.
+# build_years / predev_years = source central durations;
+# build_phasing / predev_phasing = source central annual spend fractions
+# (review condition 11 — rule-4 escalation inputs).
+# hurdle_* = the source's own per-tech triplet (sensitivity record only).
+# ----------------------------------------------------------------------------
+
+[technologies.ccgt]
+# EGC 2025 Annex A, "Gas CCGT" (H-class, 1,666 MW ref plant, 2030
+# commissioning, 2024 prices). Capex identical across the 5/30/93% LF
+# columns. Efficiency 54% HHV is NEW-plant; the 2024 FLEET average is 48.93%
+# (prices-2024.toml [efficiency.ccgt]) — dispatch keeps the fleet number,
+# new-entrant costing uses this one. Capex reflects the June-2025 DESNZ
+# upward adjustment for global turbine-market tightness (EGC 2025 report,
+# "Unabated gas — Key results").
+source = "egc2025"
+capex_gbp_per_kw = [810, 1020, 1120]     # predev [10,20,20] + construction [800,1000,1100]
+infrastructure_gbp_per_kw = 14.6          # GBP 24.4m / 1,666 MW (central)
+fom_gbp_per_mw_yr = 16000
+insurance_gbp_per_mw_yr = 2500
+connection_gbp_per_mw_yr = 4400
+vom_gbp_per_mwh = 5
+efficiency_hhv_new_plant = 0.54
+life_years = 25
+build_years = 3
+predev_years = 2
+predev_phasing = [0.43, 0.57]
+build_phasing = [0.35, 0.45, 0.20]
+hurdle_rate = [0.073, 0.089, 0.106]
+
+[technologies.ocgt]
+# EGC 2025 Annex A, "Gas OCGT 300MW" class (299 MW ref plant, 2030
+# commissioning). 35% HHV new-plant efficiency matches the GHD study figure
+# already carried in prices-2024.toml [efficiency.ocgt] (34.9% HHV).
+# The 760 MW class has the same central capex (620 GBP/kW: 20+600) but is
+# cheaper on FOM (9,100 vs 11,800), insurance (1,300 vs 1,500) and high-end
+# capex (620 vs 720) [wording per review note x2]. This row pins the 299 MW
+# class as the peaker archetype; reviewer may prefer 760.
+source = "egc2025"
+capex_gbp_per_kw = [510, 620, 720]       # predev [10,20,20] + construction [500,600,700]
+infrastructure_gbp_per_kw = 44.1          # GBP 13.2m / 299 MW
+fom_gbp_per_mw_yr = 11800
+insurance_gbp_per_mw_yr = 1500
+connection_gbp_per_mw_yr = 3100
+vom_gbp_per_mwh = 5
+efficiency_hhv_new_plant = 0.35
+life_years = 25
+build_years = 2
+predev_years = 2
+predev_phasing = [0.66, 0.34]
+build_phasing = [0.66, 0.34]
+hurdle_rate = [0.073, 0.089, 0.106]
+
+[technologies.nuclear]
+# BEIS EGC 2016, "Nuclear PWR FOAK" (3,300 MW, 2025 commissioning): the most
+# recent DESNZ-published nuclear assumption set (2025 edition withholds
+# SZC/HPC assumptions for commercial sensitivity).
+# 2014 GBP x 1.3410: construction [3700,4100,5100] -> [4962,5498,6839];
+# predev [110,240,640] -> [148,322,858]. FOM 72,900 -> 97,760. VOM 5 -> 6.71.
+# Nuclear fuel cost ~GBP 5/MWh (2014) -> 6.71 carried under fuel, not VOM.
+# BOTH-VARIANTS-QUOTED RULE (review condition 4): any PUBLISHED
+# nuclear-containing headline quotes the bracket [this set,
+# technologies.nuclear_observed] — the two are different objects (overnight
+# component set vs all-in project cost) and the basis caveat travels with
+# the bracket. Naming one variant alone is not sufficient.
+source = "egc2016"
+capex_gbp2024_per_kw = [5110, 5820, 7697]
+infrastructure_gbp2024_per_kw = 4.7       # GBP 11.5m (2014) x 1.3410 / 3,300 MW
+fom_gbp2024_per_mw_yr = 97760
+insurance_gbp2024_per_mw_yr = 13410
+connection_gbp2024_per_mw_yr = 670
+vom_gbp2024_per_mwh = 6.7
+fuel_gbp2024_per_mwh = 6.7
+decommissioning_waste_gbp2024_per_mwh = 2.7   # levelised ~GBP 2/MWh (2014) x 1.3410
+life_years = 60
+build_years = 8
+predev_years = 5
+predev_phasing = [0.20, 0.20, 0.20, 0.20, 0.20]
+build_phasing = [0.05, 0.05, 0.20, 0.20, 0.20, 0.20, 0.05, 0.05]
+hurdle_rate_cepa_2024 = 0.076             # CEPA "large-scale nuclear, RAB"
+bracket_rule = "published headlines quote BOTH this set and nuclear_observed, with the basis caveat (review condition 4)"
+
+[technologies.nuclear_observed]
+# Labelled variant, not a component set: Sizewell C FID target construction
+# cost ~GBP 38bn (2024 prices) for 3.2 GW (DESNZ press release, 22 Jul 2025)
+# = GBP 11,875/kW all-in project cost. Basis differs from the overnight
+# component convention (includes owner's costs/contingency; financing under
+# RAB is separate). One half of the mandatory nuclear bracket — see
+# technologies.nuclear bracket_rule (review condition 4).
+source = "szc_fid"
+capex_gbp_per_kw_project_total = 11875
+capacity_gw = 3.2
+basis = "press-released project total, not overnight component costs"
+bracket_rule = "published headlines quote BOTH variants (review condition 4)"
+
+[technologies.onshore_wind]
+# EGC 2025 Annex A / Arup 2024 (51.6 MW ref plant, 2030 commissioning,
+# 2024 prices). NOTE the 8-year central pre-development period; net load
+# factor 36% (locational balancing and economic curtailment excluded —
+# the engine computes its own curtailment, so no double count).
+source = "egc2025"
+capex_gbp_per_kw = [1040, 1380, 1910]    # predev [40,80,210] + construction [1000,1300,1700]
+infrastructure_gbp_per_kw = 315.9         # GBP 16.3m / 51.6 MW — material, do not drop
+fom_gbp_per_mw_yr = 18400
+insurance_gbp_per_mw_yr = 3800
+connection_gbp_per_mw_yr = 17700
+vom_gbp_per_mwh = 0
+net_load_factor_2030 = 0.36
+life_years = 35
+build_years = 2
+predev_years = 8
+predev_phasing = [0.13, 0.13, 0.13, 0.13, 0.13, 0.33]   # source: years 1-5 at 13%, "Year 6+" 33%
+build_phasing = [0.57, 0.43]
+hurdle_rate = [0.065, 0.076, 0.089]
+
+[technologies.offshore_wind]
+# EGC 2025 Annex A (fixed offshore, 1,297 MW ref plant, 2030 commissioning).
+# Arup 2024 figures revised down at low/central by the DESNZ peer review
+# (small, high-cost-skewed sample). Infrastructure N/A (in construction).
+source = "egc2025"
+capex_gbp_per_kw = [2210, 2670, 3340]    # predev [110,170,240] + construction [2100,2500,3100]
+fom_gbp_per_mw_yr = 46000
+insurance_gbp_per_mw_yr = 8900
+connection_gbp_per_mw_yr = 86700          # ~GBP 87/kW/yr — largest fixed line; TNUoS-driven
+vom_gbp_per_mwh = 0
+net_load_factor_2030 = 0.48
+life_years = 30
+build_years = 3
+predev_years = 7
+predev_phasing = [0.10, 0.10, 0.15, 0.15, 0.20, 0.30]   # source: years 1-5 + "Year 6+" 30%
+build_phasing = [0.35, 0.30, 0.35]
+hurdle_rate = [0.073, 0.089, 0.106]
+
+[technologies.solar_pv]
+# EGC 2025 Annex A / Arup 2024 (large-scale >5 MW, 52 MW ref plant, 2030
+# commissioning). 38-year operating life as published (longer than the
+# 2023 edition's 35).
+source = "egc2025"
+capex_gbp_per_kw = [410, 530, 560]       # predev [10,30,60] + construction [400,500,500]
+infrastructure_gbp_per_kw = 117.3         # GBP 6.1m / 52 MW
+fom_gbp_per_mw_yr = 5900
+insurance_gbp_per_mw_yr = 1600
+connection_gbp_per_mw_yr = 1600
+vom_gbp_per_mwh = 0
+net_load_factor_2030 = 0.12
+life_years = 38
+build_years = 1
+predev_years = 3
+predev_phasing = [0.37, 0.37, 0.26]
+build_phasing = [0.80, 0.20]              # source construction period low 1yr / high 2yr; central spend 80/20
+hurdle_rate = [0.065, 0.076, 0.089]
+
+[technologies.biomass]
+# EGC 2023 Annex A, "Dedicated Biomass" (22.9 MW ref plant, 2025
+# commissioning) — biomass was NOT updated in the 2025 edition.
+# 2021 GBP x 1.1731: construction [2600,3200,3800] -> [3050,3754,4458];
+# predev [90,130,180] -> [106,153,211]. FOM 74,900 -> 87,866. VOM 7 -> 8.21.
+# Fuel cost is a separate open question (wood-pellet price series is
+# commercial; Drax-scale conversion economics differ from this 23 MW
+# archetype) — biomass fuel price NOT pinned here, named gap.
+source = "egc2023"
+capex_gbp2024_per_kw = [3156, 3907, 4669]
+infrastructure_gbp2024_per_kw = 25.6      # GBP 0.5m (2021) x 1.1731 / 22.885 MW
+fom_gbp2024_per_mw_yr = 87870
+insurance_gbp2024_per_mw_yr = 15490
+connection_gbp2024_per_mw_yr = 17360
+vom_gbp2024_per_mwh = 8.2
+load_factor = 0.84
+life_years = 25
+build_years = 2
+predev_years = 3
+predev_phasing = [0.33, 0.33, 0.33]       # as published (sums 0.99 in source)
+build_phasing = [0.46, 0.54]
+hurdle_rate_2023 = 0.079                  # 2023 annex single value
+hurdle_rate_cepa_2024 = 0.089             # CEPA "biomass - unabated"
+
+# ----------------------------------------------------------------------------
+# Storage (D8 rule 1.3: power and energy priced separately).
+# ----------------------------------------------------------------------------
+
+[storage.battery_li_ion]
+# QUARANTINE LIFTED (quotable = true) 2026-07-06 — THE COORDINATED
+# REVIEWED ACT the review demanded. Condition 3.i's evidence requirement
+# (re-verify the NREL 2025 storage-cost bracket against the primary) was
+# DISCHARGED 2026-07-06 (cross-check record below; committed 23676f1);
+# this revision is the coordinated reference+engine change citing that
+# re-verification: the grid-core parser guard that rejected
+# quotable = true for this row is removed in the same revision, and the
+# pinned tests now byte-pin the LIFTED flag line (the same anti-silent-
+# change discipline, pointed at the new state). CAVEATS 3.ii AND 3.iii
+# REMAIN IN FORCE (below) and still propagate to every quoting artefact.
+# Split DERIVED from BEIS/Mott MacDonald 2018 (OGL; 2012 prices) by
+# differencing the 50MW/50MWh (1h) and 200MW/800MWh (4h) configurations:
+#   2030-build medium: 1h 286.6, 4h 579.7 GBP/kW
+#     -> energy (579.7-286.6)/3 = 97.7 GBP/kWh; power 188.9 GBP/kW (2012)
+#     -> x1.3873 = 135.5 GBP/kWh + 262.1 GBP/kW (2024 GBP)
+#   2018-build medium: 1h 590.3, 4h 1462.1
+#     -> 290.6 -> 403.2 GBP/kWh; 299.7 -> 415.8 GBP/kW (2024 GBP)
+# DERIVATION CAVEATS (review condition 3.ii): the differencing ignores the
+# two configurations' differing infrastructure costs (5.8 vs 34.1 GBP/kW
+# medium, 2012 GBP) and use-case archetypes (FM vs PL-DA) — the split is a
+# duration-attribution over CAPEX only. STALENESS (condition 3.iii): a 2018
+# projection vintage; the stamp propagates to any artefact quoting a
+# battery-containing cost.
+# Cross-check RE-VERIFIED AGAINST THE PRIMARY (2026-07-06, retrieved from
+# OSTI.GOV, the US DOE repository of record — nrel.gov remains unreachable
+# from this environment): NREL, Cost Projections for Utility-Scale Battery
+# Storage: 2025 Update (Cole, Ramasamy, Turan), NREL/TP-6A40-93281,
+# June 2025, values in 2024 USD; Table 2 (appendix p.16), 4h total-system
+# overnight $/kWh: 2030 low/mid/high 207/279/354; 2035 147/243/339; 2050
+# 108/178/307. (The earlier SECONDARY-sourced "mid ~247, low 152 (2035)"
+# was ~$4-5/kWh off the primary and compared the wrong year.) The
+# BEIS-derived 2030-build 4h total (135 + 262/4 = 200.5 GBP/kWh 2024
+# = ~257 $/kWh at ~1.28 USD/GBP, 2024 average) sits INSIDE the primary's
+# 2030 bracket, between low and mid. Corroboration: NREL's selected life
+# (15 yr) and RTE (85%) match this row exactly; NREL's selected FOM (4% of
+# the $/kW cost, ~53 $/kW-yr, deliberately augmentation-inclusive) is a
+# DIFFERENT BASIS from the BEIS simple-maintenance 12.9 GBP/kW-yr — named,
+# not reconciled. Report pinned: data/packs/costs-evidence.sha256
+# (nrel-tp-6a40-93281.pdf, sha256 6241ee4f...a53). Licence: US federally
+# sponsored NREL technical report, publicly available at no cost,
+# comment-level cross-check only (review condition 12 posture).
+# DEA catalogue: no licence stated -> not used.
+source = "beis_storage_2018"
+quotable = true                           # condition 3.i DISCHARGED 2026-07-06: NREL/TP-6A40-93281 primary re-verified (costs-evidence.sha256); lift = this reviewed revision; caveats 3.ii/3.iii REMAIN
+power_gbp2024_per_kw_2030build = 262
+energy_gbp2024_per_kwh_2030build = 135
+power_gbp2024_per_kw_2018build = 416
+energy_gbp2024_per_kwh_2018build = 403
+fom_gbp2024_per_kw_yr = 12.9              # 4h config, 2030-build medium, x1.3873
+life_years = 15
+cycle_life = 5000
+round_trip_efficiency = 0.85
+usable_depth_of_discharge = 0.80
+build_years = 2
+build_phasing = [1.0]                     # source: 100% in construction year (1-2 yr period)
+hurdle_rate_cepa_2024 = 0.089
+staleness_stamp = "BEIS/MM 2018 projection vintage, 2012 prices — propagate to any quoting artefact"
+
+[storage.hydrogen.electrolyser]
+# DESNZ Hydrogen Production Costs 2021 annex (2020 GBP; capex per kW of H2
+# OUTPUT, HHV). PEM, 2030 commissioning, medium: 561.76 GBP/kW_H2, medium
+# efficiency 1.27 kWhe per kWh_H2 HHV. Per kW ELECTRICAL INPUT (the engine's
+# charge-leg unit): 561.76 / 1.27 = 442.3 GBP/kWe (2020) x 1.1714 =
+# 518 GBP/kWe (2024). Alkaline 2030: 670.92 GBP/kW_H2, eff 1.25095 ->
+# 536.3 GBP/kWe (2020) -> 628 GBP/kWe (2024). Range (PEM 2030, per kW_H2):
+# [433, 562, 1216] (2020 GBP). 30-year life; stack replacement is costed
+# INSIDE the annex Variable OPEX (stacks 60% of PEM capex, ~11-year cycle).
+source = "hpc2021"
+tech = "PEM"
+capex_gbp2020_per_kw_h2_hhv_2030 = [433, 562, 1216]
+capex_gbp2024_per_kwe_2030_central = 518
+efficiency_kwhe_per_kwh_h2_hhv = 1.27
+fom_gbp2024_per_kw_h2_yr = 39.1           # 33.38 (2020) x 1.1714
+vom_gbp2024_per_mwh_h2 = 3.6              # annex Variable OPEX 0.0031 GBP/kWh_H2 (2020) = 3.1/MWh x 1.1714 (review note x3); includes stack replacement
+life_years = 30
+build_years = 3
+build_phasing = [0.3333, 0.3333, 0.3334]
+hurdle_rate_hpc2021 = 0.10
+hurdle_rate_cepa_2024 = 0.101
+alkaline_capex_gbp2024_per_kwe_2030_central = 628
+
+[storage.hydrogen.cavern]
+# LEVELISED-WITH-CONVENTION (review condition 5, option (a) adopted): no
+# open GB primary publishes salt-cavern capex in GBP/kWh_H2; a derived capex
+# was rejected as an unsourced construction. DESNZ H2 T&S Cost Report
+# (Dec 2023): new salt cavern (CGH2) 0.26 GBP/kg levelised, 9 cycles/yr,
+# 250 bar, 2023 prices -> x1.0384 = 0.27 GBP/kg (2024) / 39.39 kWh_HHV per
+# kg = 6.9 GBP/MWh_H2 per unit of storage THROUGHPUT at the stated cycling.
+# BINDING CONVENTION (normative): cost = throughput_MWh_H2 x 6.9 GBP, valid
+# ONLY at cycling rates comparable to the stated 9/yr. This number MUST NOT
+# be applied to a store cycling materially below that rate — a seasonal
+# (~1 cycle/yr) store RE-OPENS THE CAPEX GAP AS A NAMED BLOCKER and new
+# evidence must be ordered before such a scenario is costed (DEA remains
+# cross-check-only per D1).
+source = "h2_ts_2023"
+levelised_gbp2024_per_kg = 0.27
+levelised_gbp2024_per_mwh_h2_hhv = 6.9
+cycles_per_year_assumed = 9
+basis = "levelised cost, NOT capex; cycling convention binds"
+binding_convention = "valid only near 9 cycles/yr; seasonal (~1/yr) stores re-open the capex gap as a named blocker (review condition 5)"
+
+[storage.hydrogen.reconversion_ocht]
+# EGC 2025 Annex A, OCHT 100 MW FOAK (100% hydrogen open-cycle turbine,
+# 2030 commissioning, 2024 prices). The D4 discharge leg.
+# EFFICIENCY (review condition 6): DEFAULT = 25% as published in Annex A
+# (the government's number — opponent's-defaults discipline; conservative/
+# higher-cost end, direction stated). The report's footnote 9 quotes ~35%
+# (LHV) for 100% H2 turbines; ~35% LHV x 0.846 (H2 LHV/HHV ratio) =
+# ~29.6% HHV — carried below as a MANDATORY labelled sensitivity that
+# accompanies every OCHT-consuming result, with the annex-vs-footnote
+# discrepancy stamped on the artefact. The Baringa H2P primary must be
+# checked (one fetch) to resolve the basis BEFORE any OCHT-containing
+# number is PUBLISHED.
+# CHECKED 2026-07-06 (the condition-6 fetch, data engineer): Baringa for
+# DESNZ, "Hydrogen to power: costs and barriers", published 14 Jan 2026,
+# OGL v3.0 (gov.uk publication "Hydrogen to power: cost and technical
+# assumptions"), pinned in data/packs/costs-evidence.sha256 (sha256
+# f9bd4a95...92cd). Basis RESOLVED: p.33 — turbines already operating on
+# 100% hydrogen are sub-100 MW industrial models optimised for durability,
+# "around 35% (LHV)" rated, vs up to 42% for state-of-the-art large gas
+# turbines (Table 11 p.40: typical gas OCGT central 38% LHV); OEMs expect
+# 100%-H2 archetypes at gas-equivalent performance by the early 2030s.
+# Baringa publishes NO 25% rated efficiency anywhere: Annex A's 25%
+# "average fuel efficiency" is DESNZ's own duty-cycle average — a
+# DIFFERENT OBJECT from the ~35% LHV (~29.6% HHV) rated basis. Default
+# (25%, the government's number) and the mandatory labelled sensitivity
+# are UNCHANGED; the publication_gate string update recording this
+# resolution is PROPOSED to review, not applied (reviewed-act discipline). CCHT (50% blend, 900 MW): capex [1060,1170,1380],
+# FOM 14,500, eff 51% HHV — recorded for the blend archetype.
+source = "egc2025"
+capex_gbp_per_kw = [750, 850, 950]        # predev 50 + construction [700,800,900]
+infrastructure_gbp_per_kw = 53.0          # GBP 5.3m / 100 MW
+fom_gbp_per_mw_yr = 19400
+insurance_gbp_per_mw_yr = 1500
+connection_gbp_per_mw_yr = 3100
+vom_gbp_per_mwh = 5
+efficiency_hhv_default = 0.25             # Annex A as published — the default
+efficiency_hhv_sensitivity_labelled = 0.296  # ~35% LHV (report fn.9) x 0.846 — mandatory labelled sensitivity (review condition 6)
+publication_gate = "Baringa H2P primary check required before any OCHT-containing number is published (review condition 6)"
+life_years = 25
+build_years = 2
+predev_years = 2
+predev_phasing = [0.56, 0.44]
+build_phasing = [0.66, 0.34]
+hurdle_rate = [0.085, 0.101, 0.120]
+
+# ----------------------------------------------------------------------------
+# Pathway trajectories (opponent's defaults: the government's own published
+# planning assumptions). Cross-checks: NESO FES 2025 (NESO Open Data Licence,
+# pack data/packs/fes2025); CCC 7th Carbon Budget (licence unclear — quote
+# with attribution only, not redistributed). Neither is load-bearing here.
+# SUPERSEDED 2026-07-06: CCC licence is OGL v3.0 (site-wide statement,
+# independently verified — stage7-pathways-data-review.md §8; docs/08 D1
+# CCC addendum). The line above is kept verbatim as the dated record.
+# ----------------------------------------------------------------------------
+
+[trajectories.gas]
+# DESNZ FFPA 2025 data tables, "Gas" sheet, real 2024 p/therm, scenarios
+# A=low, B=central, C=high. Conversion to GBP/MWh_th HHV: x 0.341214
+# (UK statutory therm = 29.3071 kWh, gross CV — the GB/NBP trading unit,
+# consistent with the Stage 2 HHV chain; factor = 10/29.3071).
+# [Corrected per review condition 2: previous draft used the US-therm
+# factor 0.34130.] Reconciliation: 2024 outturn 84 p/therm x 0.341214 =
+# 28.66 GBP/MWh vs the committed pack's daily SAP mean 28.67
+# (prices-2024.toml) — agreement WITHIN 0.01 GBP/MWh between two
+# independent series (within-day SAP vs FFPA outturn).
+source = "ffpa2025"
+unit = "p/therm, real 2024"
+years =   [2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035, 2036, 2037, 2038, 2039, 2040, 2045, 2050]
+low =     [  77,   52,   44,   43,   43,   42,   41,   40,   39,   38,   37,   36,   35,   34,   33,   32,   32,   32]
+central = [  94,   85,   73,   72,   72,   71,   71,   70,   70,   69,   69,   68,   68,   67,   67,   66,   66,   66]
+high =    [ 121,  143,  124,  122,  121,  120,  119,  118,  116,  115,  114,  113,  112,  110,  109,  108,  108,  108]
+p_per_therm_to_gbp_per_mwh_hhv = 0.341214
+
+[trajectories.carbon]
+# DESNZ Traded carbon values 2025 (real 2025 GBP -> x0.9692 = real 2024 GBP
+# shown here). "Not forecasts": scenario-based modelling values — stamp on
+# every artefact. 2024 ACTUAL stays the pack's UKA auction series
+# (prices-2024.toml, mean 37.18). CPS convention (ACCEPTED, review
+# condition 8): 18 GBP/tCO2 NOMINAL frozen — deflate along the pathway in
+# real terms, labelled; real-terms continuation is the labelled
+# conservative variant.
+source = "traded_carbon_2025"
+unit = "GBP/tCO2e, real 2024 (published 2025 values x 0.9692)"
+years =   [2025, 2030, 2035, 2040, 2045, 2050]
+low =     [21.3, 24.2, 43.6, 71.7, 134.7, 161.9]
+central = [28.1, 48.5, 67.8, 131.8, 190.9, 227.8]
+high =    [35.9, 64.0, 89.2, 172.5, 242.3, 288.8]
+cps_gbp_per_tco2_nominal = 18.0
+cps_convention = "deflate frozen nominal 18 along pathway (labelled); real-terms continuation = labelled conservative variant (review condition 8)"
+
+# ----------------------------------------------------------------------------
+# Stability-service holding costs (D8 rule 1.5, Q8 linkage). Computed from
+# the pinned FY2025 EAC snapshot (sources.eac_fy2025 — same sha256 as
+# response-holdings-2025.toml); reviewer-recomputed bit-identical (review
+# condition 10: accepted). GBP per MW per hour of holding. Keys match
+# response-holdings-2025.toml [[services]] names for a mechanical join.
+# central = FY2025 volume-weighted mean; range = per-window p5..p95.
+# Negative prices are genuine (providers pay for charging opportunity).
+# ----------------------------------------------------------------------------
+[holding_costs]
+source = "eac_fy2025"
+unit = "GBP/MW/h"
+period = "FY2025 (2025-04-01 .. 2026-03-31), 2190 EFA windows per product"
+
+[holding_costs.dynamic_containment_lf]   # EAC product DCL
+central = 3.31
+range_p5_p95 = [0.89, 7.29]
+mean_unweighted = 3.23
+
+[holding_costs.dynamic_moderation_lf]    # EAC product DML
+central = 6.05
+range_p5_p95 = [3.08, 11.38]
+mean_unweighted = 6.21
+
+[holding_costs.dynamic_regulation_lf]    # EAC product DRL
+central = 14.19
+range_p5_p95 = [7.35, 23.34]
+mean_unweighted = 14.15
+
+[holding_costs.high_frequency_products]  # recorded; Q8 survival model excludes
+dch = 2.06
+dmh = 1.24
+drh = -3.42                               # negative: net payment TO NESO
+
+# ----------------------------------------------------------------------------
+# Interconnector capex (rule 1.4). Per-project cited figures; a naive
+# GBP/GW-km intensity misleads (converter fixed costs dominate short links).
+# MACHINE-READABLE QUARANTINE (review condition 9): only Viking Link is
+# verified/quotable; NSL, NeuConnect and Greenlink carry verified = false /
+# quotable = false and MUST NOT be consumed by the engine until pinned to a
+# primary.
+# ----------------------------------------------------------------------------
+[interconnectors.viking_link]            # GB <-> DK1 (D5 zone)
+source = "viking_link"
+verified = true
+quotable = true
+capex_gbp_bn = 1.7
+capacity_gw = 1.4
+length_km = 765
+derived_gbp_m_per_gw_km = 1.59
+status = "verified: National Grid press release"
+
+[interconnectors.north_sea_link]         # GB <-> NO2
+verified = false
+quotable = false
+capacity_gw = 1.4
+length_km = 720
+# CORRECTED 2026-07-06 (23676f1 evidence record): the owner primary
+# (Statnett, 2021-10-01) states EUR 1.6bn EXPECTED cost, contradicting the
+# earlier secondary-sourced 2.0 estimate — the recorded ESTIMATE is
+# corrected; the row REMAINS QUARANTINED (the evidence is not
+# Viking-standard: a foreign-currency figure and an expected, not outturn,
+# cost). No consumable GBP capex exists.
+capex_eur_bn_estimated = 1.6
+status = "owner primary (Statnett 2021-10-01): EUR 1.6bn EXPECTED cost — EUR, expected-not-outturn, below the Viking verification standard; quarantined pending a GBP outturn primary"
+
+[interconnectors.neuconnect]             # GB <-> CONT-NW class
+verified = false
+quotable = false
+capacity_gw = 1.4
+length_km = 725
+capex_gbp_bn_range = [1.4, 2.4]
+status = "CONFLICTING public figures (project cost vs financing package); Ofgem FPA cost tables redacted — gap"
+
+[interconnectors.greenlink]              # GB <-> IE-SEM
+verified = false
+quotable = false
+capacity_gw = 0.5
+length_km = 190
+status = "cost NOT verified to a primary this session — gap"
+
+# ----------------------------------------------------------------------------
+# Emissions factors closing the D8 rule-9 gap (biomass/coal/"other").
+# UK GHG Conversion Factors 2024 condensed set v1.1, gross CV — the same
+# source and CO2-only pricing convention as prices-2024.toml.
+# ACCEPTED (review condition 7) with the residual-reporting requirement
+# below made MANDATORY.
+# ----------------------------------------------------------------------------
+[emission_factor.coal_electricity_generation]
+source = "ghg_cf_2024"
+co2_tonnes_per_mwh_th_hhv = 0.31530       # CO2-only: what UKA/CPS price
+co2e_tonnes_per_mwh_th_hhv = 0.31699
+
+[emission_factor.biomass]
+source = "ghg_cf_2024"
+co2_tonnes_per_mwh_th_for_pricing = 0.0   # biogenic CO2 'outside of scopes'; UK ETS zero-rated
+co2e_tonnes_per_mwh_th_non_co2 = 0.01132  # wood CH4+N2O — accounting only, never priced
+
+[emission_factor.other_category]
+# BMRS OTHER bucket (mixed biomass CHP/waste/misc): no defensible single
+# factor. Convention (MANDATORY, review condition 7): carbon-price at zero,
+# AND every emissions-priced artefact reports the unpriced "other" residual
+# as a named quantity — TWh, and a bounded tCO2 range where a bounding
+# factor is stated.
+co2_tonnes_per_mwh_th_hhv = 0.0
+convention = "zero-priced; unpriced residual reported as a named quantity (TWh + bounded tCO2 range where boundable) on every emissions-priced artefact — MANDATORY (review condition 7)"

@@ -1,0 +1,184 @@
+# Per-zone (external/continental) carbon and gas price reference
+# for the D11 priced multi-zone dispatch package (tier-2 imports).
+# Assembled 2026-07-04 (data engineer). Companion to the committed GB pack
+# data/reference/prices-2024.toml, following the SAME citation discipline:
+# every number carries its citation; nothing here is fetched at build time;
+# proprietary series (ICE/EEX futures) are REJECTED, not silently
+# substituted (the NBP/ICE precedent, prices-2024.toml [gas]).
+#
+# STATUS: CONSUMED by the engine since schema v7 (D11 engine package,
+# 2026-07-05): the per-zone [pricing] blocks in scenarios/gb-2024-5zone.toml
+# cite this file and a drift-guard test asserts the values match it.
+#
+# HEADLINE FINDING (see docs/notes/d11-per-zone-price-data-report.md):
+# the 2024 GB-vs-EU carbon WEDGE is ~NIL (+£0.17/tCO2). The UK ETS traded
+# at a deep discount to the EU ETS in 2024 (UKA mean £37.18 vs EUA £55.01),
+# and the £18 GB Carbon Price Support closes almost exactly that gap. The
+# per-zone carbon term therefore gives NEGLIGIBLE A2a improvement on the
+# 2024 validation year — the opposite of the D11 review §A working
+# assumption. Documented, not hidden.
+#
+# SRMC recipe these numbers feed (per zone, reusing the Stage 2 GB recipe
+# UNCHANGED — ADR-9: recipe reused, per-zone application new):
+#   SRMC_zone [£/MWh_e] = gas_price_hhv / efficiency_hhv
+#                       + (ef_gas / efficiency_hhv) * carbon_price_zone
+# where carbon_price_zone = eua_price for every external zone (no CPS
+# analogue outside GB), gas_price_hhv = the GB daily SAP series (fallback,
+# see [gas] below), and ef_gas / efficiency_hhv are taken UNCHANGED from
+# prices-2024.toml (same gas-only recipe applied to every zone — a stated
+# boundary for coal/lignite-marginal continental periods, see report §4).
+# All prices on a GROSS calorific value (HHV/GCV) basis, consistently.
+
+schema = "prices-reference-v1"
+year = 2024
+applies_to = ["FR", "CONT-NW", "NO2", "DK1", "IE-SEM"]  # ADR-7 external zones
+gb_companion = "data/reference/prices-2024.toml"
+
+[fx]
+# 2024 annual average Sterling/Euro spot rate, used to convert every EUR
+# figure below to GBP for a like-for-like comparison with the GB pack.
+# Convention: `eur_per_gbp` is euros per £1 (the ONS series direction);
+# divide EUR by this to get GBP.  gbp_per_eur = 1/1.1815 = 0.84638.
+# Source: ONS, "Average Sterling exchange rate: Euro (XUMAERS)", series
+# THAP/MRET, 2024 annual value (updated 2025-02-13). Licence: OGL v3.0.
+# https://www.ons.gov.uk/economy/nationalaccounts/balanceofpayments/timeseries/thap/mret
+# PROVENANCE NOTE (review condition 1): this value was read from the ONS
+# series API but is NOT archived as a checksummed snapshot in raw/ (low
+# risk — a single OGL scalar, stable, updateDate 2025-02-13). Flagged.
+eur_per_gbp = 1.1815
+gbp_per_eur = 0.84638
+
+[carbon.eua]
+# EU ETS allowance (EUA) 2024 average price. Applies to EVERY external
+# zone: FR, BE, NL, DE-LU, DK1 are EU Member States; NO2 (Norway) is in
+# the EU ETS via the EEA agreement; IE-SEM is predominantly Republic of
+# Ireland (EU ETS) — see [zone_assignment] for the SEM NI-in-UK-ETS caveat.
+# There is NO Carbon Price Support (or any national top-up) outside GB, so
+# the external-zone carbon price is the bare EUA price.
+#
+# PRIMARY value: EUR 65/tCO2 (2024 EUA spot average). Chosen as primary
+# (review condition 1) because it has an ARCHIVED, CHECKSUMMED provenance
+# PDF in raw/, unlike the EEA web indicator. Source: ESMA, "EU Carbon
+# Markets Report 2025" (ESMA50-481369926-30552, 22 Oct 2025), "Prices and
+# volatility": "In 2024, the spot price of EUAs averaged EUR 65 per tonne
+# ... down 22% from 2023", low EUR 51 (end-Feb), range EUR 60-75 after.
+# Licence: ESMA/EU public-authority document, reusable with attribution.
+# (data/packs/2024/raw/esma-carbon-markets-report-2025.pdf,
+#  sha256 763dccfc0ec20519a08f0f7ec2518cfa032827efdd282476d3bfce704f7a497a)
+# Basis caveat: this is a SECONDARY-MARKET SPOT average; the GB companion
+# uses UKA AUCTION clearing means — a small spot-vs-auction basis
+# difference (<€1), immaterial to the ~nil wedge.
+#
+# Cross-checks (both open/reusable; agree to within €0.5):
+#  - EEA, indicator "Use of auctioning revenues under the EU ETS": 2024
+#    volume-weighted allowance average EUR 64.8/tCO2e (an AUCTION-weighted
+#    figure, directly comparable to the UKA auction mean; would give a
+#    +£0.33 wedge — still nil). EEA re-use policy (free re-use, source
+#    acknowledged). NOT archived as a checksummed snapshot (web indicator).
+#    https://www.eea.europa.eu/en/analysis/indicators/use-of-auctioning-revenues-generated
+#  - EU Commission DG CLIMA, "2024 Carbon Market Report" (19 Nov 2024) —
+#    covers to 30 Jun 2024 only: H1-2024 auction clearing prices ranged
+#    EUR 49.50 (23 Feb) to EUR 75.35 (3 Jun); 2023 auction average
+#    EUR 83.60. Reusable under Commission Decision 2011/833/EU.
+#    (data/packs/2024/raw/eu-carbon-market-report-2024-h1.pdf,
+#     sha256 fc17ff615dfea4dfa4e3ff47cb148e5a957c5adcfff4339a8154cb5da1acc600)
+# REJECTED on licence grounds (documented, not substituted): EEX EU ETS
+# primary-auction data as a redistributable series — EEX terms permit
+# "systematic republication or dissemination of substantial amount of
+# Data ... only with the express permission of EEX AG" (eex.com market-data
+# terms). ICE EUA futures: proprietary. Both are the EU analogue of the
+# NBP/ICE rejection in prices-2024.toml. Only report-level averages
+# (ESMA/EEA/Commission) are openly licensed — sufficient for a price LEVEL,
+# not a daily/half-hourly series (mirrors the UKA fortnightly-step limit).
+unit = "EUR/tCO2e"
+average_2024_eur = 65.0
+average_2024_gbp = 55.01   # 65.0 * 0.84638
+# Convention for a continuous series: 2024 is treated as a FLAT annual mean
+# per zone (no open daily EUA series exists; see rejection above). The
+# within-year EUA range (EUR 51-75 ≈ £43-64) is the disclosed uncertainty,
+# narrower in carbon-cost terms than the gas-price uncertainty already
+# carried by the GB pack.
+
+[carbon.wedge]
+# THE HEADLINE. GB-vs-EU carbon wedge on gas generation, 2024, £/tCO2.
+# GB effective carbon = UKA auction mean (£37.18, prices-2024.toml
+# [carbon.uka]) + CPS (£18, [carbon.cps]) = £55.18/tCO2.
+# EU effective carbon = EUA average = £55.01/tCO2 (£65 * 0.84638, above).
+# Unrounded wedge = 55.18 - 55.0148 = 0.1652/tCO2 -> shown as +£0.17.
+# In SRMC terms at the GB CCGT recipe (EF 0.18253, η 0.4893), using the
+# UNROUNDED wedge 0.1652:
+#   0.1652 * 0.18253 / 0.4893 = £0.0616/MWh_e  — negligible vs the recipe's
+# own fat tails (price-pack report §4: P/SRMC p5=0.11, p95=1.30).
+# (Under the EEA cross-check EUA £54.85 the wedge is +£0.33 -> £0.125/MWh_e;
+#  still nil. The conclusion is robust to the primary-source choice.)
+gb_carbon_gbp_per_tco2 = 55.18
+eu_carbon_gbp_per_tco2 = 55.01
+wedge_gb_minus_eu_gbp_per_tco2 = 0.17   # unrounded 0.1652
+wedge_srmc_gbp_per_mwh_e = 0.062        # from unrounded wedge 0.1652
+
+[gas]
+# DECISION: GB-gas fallback. External zones use the GB daily SAP series
+# (data/packs/2024/processed/gas_sap_daily_2024.*, prices-2024.toml [gas])
+# as their gas-price basis. Justification (report §3):
+#  1. NO licence-clean continental daily/half-hourly gas series exists.
+#     ICE TTF and EEX TTF futures are proprietary (rejected, as ICE/NBP
+#     were). Only REPORT-LEVEL TTF averages are openly licensed
+#     (DG ENER below) — too coarse for a per-period SRMC.
+#  2. The 2024 annual TTF level (€35/MWh ≈ £29.62/MWh_th HHV) is within
+#     ~3.3% of GB SAP (£28.67/MWh_th) — the same gas-price level to within
+#     the recipe's own noise.
+#  3. BEST-CASE GAS TREATMENT FOR THE LADDER (review condition 3): real TTF
+#     sat SLIGHTLY ABOVE SAP in 2024, so a TTF basis would give continental
+#     gas SRMC a touch HIGHER than GB (+£1.95/MWh_e), i.e. a systematic
+#     WRONG-WAY (GB->FR) term against GB's dominant observed import pattern
+#     (FR->GB). A wrong-way term would DEGRADE the ladder's A2a; zeroing it
+#     via the GB-gas fallback therefore marginally FLATTERS the ladder, it
+#     does not penalise it. So this is the ladder's best case on gas — and
+#     the finding is that the gas/carbon lever is STILL empty even under it
+#     (conservative for the NULL, optimistic for the ladder). The carbon
+#     term (also ~nil, above) then carries the whole per-zone asymmetry —
+#     which in 2024 is ~nil.
+# Consequence, stated plainly: with equal gas AND ~equal carbon, per-zone
+# gas-marginal SRMCs are ~equal, so in genuinely both-gas-marginal periods
+# the priced ladder degrades to today's scarcity rule (D11 §A). Any A2a
+# improvement must come from zones' NON-gas merit order (FR nuclear/hydro,
+# NO2 hydro pricing below GB gas), NOT from fuel/carbon-price asymmetry.
+basis = "gb-sap-fallback"
+gb_sap_series = "data/packs/2024/processed/gas_sap_daily_2024.{csv,parquet}"
+
+[gas.ttf_reference]
+# TTF (continental hub) 2024 average — CROSS-CHECK ONLY, not consumed
+# (no licence-clean daily series; see [gas]). Documents that GB and
+# continental gas LEVELS tracked within a few percent in 2024.
+# Value: €35/MWh (EU annual average wholesale/TTF day-ahead price).
+# Source: European Commission DG ENER, Market Observatory for Energy,
+# "Quarterly Report on European Gas Markets", Q4 2024, p.-summary:
+# "The annual average gas wholesale price was 35 €/MWh, a decrease of 16%
+# compared to 2023 (41 €/MWh)". Quarterly: Q1 27.3, Q4 43 €/MWh.
+# Reusable under Commission Decision 2011/833/EU.
+# https://energy.ec.europa.eu/data-and-analysis/market-analysis_en
+# (data/packs/2024/raw/dg-ener-quarterly-gas-q4-2024.pdf,
+#  sha256 356b8ee14a773cac89ee7c15f261df0d19af9ec78cc52ed91fc59e5829d476b1)
+# Calorific basis: TTF and NBP/GB-SAP both quote €|£/MWh on a GCV (gross)
+# basis — comparable without adjustment (assumption stated).
+unit = "EUR/MWh_th_HHV"
+average_2024_eur = 35.0
+average_2024_gbp = 29.62   # 35.0 * 0.84638
+gb_sap_average_2024_gbp = 28.67
+ttf_over_sap_ratio = 1.033
+
+[zone_assignment]
+# Per-zone price basis for the five ADR-7 external zones. Carbon = EUA for
+# all (above). Gas = GB-SAP fallback for all (above). The "wedge bites"
+# column is where a per-zone gas/carbon SRMC actually enters the flow rule
+# — i.e. where the zone is plausibly gas-marginal. FR and NO2 are
+# nuclear/hydro-dominated: gas rarely sets their price, so the (already
+# ~nil) wedge almost never enters. See report §4.
+# schema: { zone, carbon, gas, gas_marginal_exposure, note }
+zones = [
+  { zone = "FR",      carbon = "EUA", gas = "gb-sap", gas_marginal_exposure = "low",    note = "nuclear+hydro dominated; gas-marginal a minority of hours; A2a fix comes from FR non-gas margin pricing below GB gas, not the carbon/gas wedge" },
+  { zone = "CONT-NW", carbon = "EUA", gas = "gb-sap", gas_marginal_exposure = "high",   note = "BE+NL+DE-LU aggregate; most gas-exposed zone; BOUNDARY: coal/lignite-marginal DE periods are priced with the gas-only recipe (no coal EF/η in the pack) — a stated approximation, not silently substituted" },
+  { zone = "NO2",     carbon = "EUA", gas = "gb-sap", gas_marginal_exposure = "nil",    note = "Norway ~100% hydro; EU ETS via EEA; price set by hydro opportunity cost (water value) which this fuel-SRMC recipe does NOT capture — Module 5 'NO2-flat' consistent; wedge never binds" },
+  { zone = "DK1",     carbon = "EUA", gas = "gb-sap", gas_marginal_exposure = "medium", note = "wind + gas/biomass; gas-marginal in low-wind hours" },
+  { zone = "IE-SEM",  carbon = "EUA", gas = "gb-sap", gas_marginal_exposure = "high",   note = "all-island SEM; gas-heavy, often gas-marginal. CAVEAT: Republic of Ireland is in EU ETS; Northern Ireland is in UK ETS but is a small share of SEM — treated as EU ETS (dominant), a stated approximation" },
+]

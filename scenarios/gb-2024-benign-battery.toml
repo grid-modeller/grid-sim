@@ -1,0 +1,85 @@
+# Stage 3 benign-year acceptance scenario (docs/04 Stage 3; D4
+# acceptance hook): a single benign weather year (2024) plus a 12-hour
+# battery on a sensible renewables-heavy fleet gives ZERO unserved
+# energy — the "a few days of storage is enough" claim's home turf,
+# reproduced here deliberately before the 37+-year runs dismantle it.
+#
+# FLEET CHOICE (documented per the work order). A plausible near-term
+# renewables-heavy GB: today's dispatchable core stripped to its two
+# clean-ish pillars — 30 GW CCGT (the 2024 CCGT class, DUKES 5.11) and
+# 6 GW nuclear (≈ end-2024 fleet, rounded) — with wind and solar scaled
+# to roughly twice the end-2024 fleet: 40 GW offshore / 25 GW onshore /
+# 35 GW solar (100 GW of weather-driven capacity ≈ 246 TWh potential
+# against 261.8 TWh demand). No imports, no biomass/hydro/coal, no
+# availability derating: every simplification is *generous*, which is
+# the point of a home-turf test. Weather and demand are the observed
+# 2024 traces (D3 underlying-demand convention; ERA5-derived CF shapes,
+# docs/notes/era5-cf-2024-report.md); no station-load adjustment — this
+# is a synthetic fleet, not a validation run.
+#
+# MEASURED 2024 RESULT (pinned by
+# grid-adequacy/tests/acceptance_stage3_2024.rs): without the battery
+# the fleet is short in just 3 spells (2024-11-18, 2024-12-11,
+# 2024-12-12), 33 half-hours, 19.1 GWh total, max depth 2.5 GW. The
+# 12-hour battery below (3 GW × 12 h = 36 GWh ≈ 70 minutes of average
+# GB demand) clears all of it: 2024 says the storage problem is a
+# battery problem. The 37+-year record says otherwise — that is Stage 3
+# part 2's Royal-Society-style run.
+
+schema_version = 8   # v8: version line only (no heating resource_depth_m set; docs/03 migration)
+name = "GB-2024-benign-battery"
+description = "Renewables-heavy fleet + 12 h battery vs the single benign 2024 weather year: zero unserved (docs/04 Stage 3 acceptance; to be dismantled by the 37+-year runs)"
+
+[horizon]
+start = "2024-01-01T00:00:00Z"   # UTC, half-hourly periods (17,568; leap year)
+end   = "2024-12-31T23:30:00Z"
+weather_years = [2024]
+
+[[zones]]
+id = "GB"
+
+[zones.demand]
+base_profile = "data/packs/2024/processed/demand_2024.parquet"
+column = "underlying_demand"     # D3 total-generation convention
+annual_scale = 1.0
+
+# --- Dispatchable core (runs before storage discharge, D4 rule 3) ---
+
+[[zones.fleet]]
+technology = "nuclear"
+capacity_gw = 6.0                # ≈ end-2024 fleet, no outage derating (generous)
+
+[[zones.fleet]]
+technology = "ccgt"
+capacity_gw = 30.0               # the 2024 CCGT class held constant
+
+# --- Weather-driven (must-take), ≈ 2× the end-2024 fleet ---
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 40.0
+capacity_factor_trace = "data/packs/2024/processed/gb_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 25.0
+capacity_factor_trace = "data/packs/2024/processed/gb_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 35.0
+capacity_factor_trace = "data/packs/2024/processed/gb_solar_cf_2024.parquet"
+
+# --- The 12-hour battery ---
+# Power sized just above the deepest 2024 post-stack deficit (2.5 GW);
+# energy = 12 h × power. Initial SoC: full (D4 default).
+
+[[zones.storage]]
+kind = "battery"
+power_gw = 3.0
+energy_gwh = 36.0
+round_trip_efficiency = 0.88     # typical Li-ion round trip (docs/03 sketch)
+dispatch_order = 1
+
+[dispatch]
+policy = "rule_based"

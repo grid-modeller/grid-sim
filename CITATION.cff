@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "grid-sim: a GB electricity system simulator"
+type: software
+authors:
+  - family-names: Lyon
+    given-names: Richard
+repository-code: "https://github.com/grid-modeller/grid-sim"
+license:
+  - MIT
+  - Apache-2.0
+version: 0.1.0
+date-released: 2026-07-09
+abstract: >-
+  A deterministic Rust simulator of the GB electricity system coupling
+  half-hourly chronological dispatch (energy adequacy) with swing-equation
+  event simulation (system stability), validated against observed 2024 GB
+  outturn. Every published number is regenerable from a scenario file, a
+  data-pack checksum, and the engine git hash.

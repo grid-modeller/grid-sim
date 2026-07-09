@@ -1,0 +1,109 @@
+# Two-tier CI (public repo).
+#
+# Tier 1 `checks` always runs and needs no data: fmt, clippy -D warnings,
+# hermetic unit tests, doc tests. Verified green on a clone that has only
+# the committed tree (manifests + data/reference, no built packs).
+#
+# Tier 2 `pinned-regression` is the visible proof that the published numbers
+# regenerate: it downloads the redistributable GB data-pack bundle
+# (CC-BY-4.0, see data/PROVENANCE.md) and runs the pinned acceptance and
+# regression suite. It is enabled by setting the repository variable
+# GB_PACK_URL to the pack tarball (release asset or Zenodo record).
+#
+# Deliberately not run here: the ENTSO-E-dependent continental tests
+# (regression_5zone/8zone, stage5, d11/d13 acceptance, heating_outputs,
+# grid-core scenario.rs) — ENTSO-E data is not redistributable
+# (data/PROVENANCE.md); reproduce locally with a free ENTSO-E token via
+# scripts/fetch-entsoe. Also excluded: acceptance_fetchdata_2024 (network).
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  checks:
+    name: fmt + clippy + unit tests (no data)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        # toolchain resolved from rust-toolchain.toml
+      - name: rustfmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: unit tests (hermetic, pack-free)
+        run: cargo test --workspace --lib
+      - name: doc tests
+        run: cargo test --workspace --doc
+
+  pinned-regression:
+    name: pinned regression suite (GB pack)
+    runs-on: ubuntu-latest
+    # Enabled once the repository variable GB_PACK_URL points at the
+    # published GB pack bundle.
+    if: ${{ vars.GB_PACK_URL != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: restore GB data packs from cache
+        id: pack-cache
+        uses: actions/cache@v4
+        with:
+          path: data/packs
+          key: gb-packs-${{ hashFiles('data/packs/*.sha256') }}
+      - name: download GB data packs
+        if: steps.pack-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -fL --retry 3 -o /tmp/gb-packs.tar.zst "${{ vars.GB_PACK_URL }}"
+          tar --zstd -xf /tmp/gb-packs.tar.zst -C data/
+          rm /tmp/gb-packs.tar.zst
+      # The pinned tests themselves are the determinism gate (cell-exact
+      # digests); manifest shasum -c is not run here because 4 pre-existing
+      # stale .parquet pins in data/packs/2024.sha256 are documented
+      # housekeeping (memory ledger, 2026-07-07).
+      - name: grid-core (GB targets)
+        run: >
+          cargo test -p grid-core
+          --test costs_reference --test heating --test inertia_defaults
+          --test pathways_published --test pricing --test trace_loading
+      - name: grid-stability
+        run: >
+          cargo test -p grid-stability
+          --test acceptance_aug2019 --test analytic --test inertia_sum
+          --test pathway --test reference_inertia --test spec_and_swing
+      - name: grid-adequacy (GB targets)
+        run: >
+          cargo test -p grid-adequacy --release
+          --test acceptance_2024 --test acceptance_b4_3zone
+          --test acceptance_b4_lp --test acceptance_b4_robustness
+          --test acceptance_b6_2zone --test acceptance_b6_robustness
+          --test acceptance_stage2_2024 --test acceptance_stage3_2024
+          --test acceptance_stage3_rs37y --test acceptance_stage4
+          --test acceptance_stage7_pathways --test cost_stack
+          --test engine --test geothermal_depth --test heating_mix
+          --test heating --test import_convention --test inputs
+          --test lp_dispatch --test lp_gap_report --test lp_guards
+          --test lp_loss_waste --test lp_rolling --test lp_solve
+          --test multi_year --test multizone_deficit_charge_guard
+          --test multizone --test pricing_delivered
+          --test q9_decomposition --test reliability --test solver
+          --test storage --test tractability_bench
+      - name: grid-cli (GB targets)
+        run: >
+          cargo test -p grid-cli --release
+          --test cli --test heating_mix_sweep --test regression_2024
+          --test regression_2zone --test regression_3zone
+          --test regression_capture_wedge_2024
+          --test regression_delivered_2024
+          --test regression_imports_bracket_2024
+          --test regression_inertia_validation_2024
+          --test regression_stage2_2024
+          --test stability_validate_inertia_smoke --test stability
+          --test wind_capacity_zonal

@@ -1,0 +1,209 @@
+# CCC Seventh Carbon Budget "Balanced Pathway" 2035 fleet under 2024
+# weather — Stage 7 published-pathway scenario. Data:
+# data/reference/pathways-published.toml (ccc_cb7_balanced; evidence
+# docs/notes/stage7-pathways-data-report.md — the data review's
+# conditions 5-8 bind this file). Pins:
+# grid-adequacy/tests/acceptance_stage7_pathways.rs. The shared run
+# conventions (2024 weather/CF traces, 2024 demand shape, autarky,
+# flat-1.0 availability except hydro-class limits, 2024-actuals SRMC,
+# storage RTE conventions, no electrification reprofiling — with each
+# bias direction) are conventions 1-5 and 8 of
+# scenarios/fes2025-ee-2035.toml and apply verbatim. THIS header states
+# the CCC-specific declarations the review requires.
+#
+# UK-AS-GB CONVENTION (review condition 6, DECLARED): every CCC number
+# is UNITED KINGDOM scope; the engine models GB. Northern Ireland
+# (~2.9-3% of UK electricity demand, on the Irish synchronous area) is
+# NOT separable from any CB7 table. This scenario carries the UK
+# figures UNADJUSTED as GB: demand and fleet embed NI TOGETHER, so the
+# supply/demand ratio is preserved and no invented derate is applied.
+# Direction: absolute GB quantities (TWh, GW, £) are overstated ~3%;
+# adequacy ratios approximately unaffected. The convention travels on
+# every CCC-derived output.
+#
+# DEMAND BASIS + THE ELECTROLYSIS WEDGE (review conditions 1/7,
+# DECLARED): this scenario runs the CCC's own published headline
+# demand basis, 443.541 TWh, which EXCLUDES 29 TWh of surplus-driven
+# electrolysis (report p.208 under Table 7.5.1; Fig 7.5.3 note 6: the
+# fleet is sized to serve demand PLUS that electrolysis). Rationale
+# for running the EXCLUDING basis rather than adding the 29 TWh as
+# firm load: surplus-driven electrolysis is by definition
+# interruptible load that absorbs surplus only — modelling it as FIRM
+# demand would manufacture unserved energy in scarcity hours that the
+# CCC pathway never implies, corrupting the adequacy headline (the
+# primary Stage 7 question). Consequences, named on every quote:
+#  - the fleet is UNDER-LOADED ~6.5% (29/443.5): adequacy results are
+#    biased FAVOURABLE to the pathway (unserved findings a fortiori);
+#  - CURTAILMENT is overstated as waste by up to 29 TWh — that much of
+#    any measured surplus is CCC-intended electrolysis feedstock, not
+#    waste; the pins carry this wedge;
+#  - any FES-vs-CCC demand or adequacy comparison carries the
+#    demand-basis wedge (FES INCLUDES electrolysis as firm load; CCC
+#    EXCLUDES it): never compare the headline demands without it.
+#
+# CONSTRUCTED PEAK (review condition 7, DECLARED): the CCC publishes
+# NO system peak demand (named quarantine gap). The peak here is a
+# construction: 2024 shape x uniform scale =~ 80.5 GW. It is a
+# convention of this scenario, not CCC data.
+#
+# THE THREE CCC SPLIT DECISIONS (review condition 8 — this package's
+# reviewed decisions, each with rationale; the parser refuses to hand
+# any mappable=false aggregate over as fleet capacity, so each
+# consumption below is an explicit, pinned, declared rule):
+#  S1. unabated_gas 29.71 GW -> ccgt 19.2129 + ocgt 10.4971. The
+#      CCGT:OCGT split is not published by the CCC; the declared rule
+#      applies the FES EE 2035 unabated-gas class ratio
+#      (CCGT-class 12.9138 : OCGT-class 7.0555, the only published
+#      contemporaneous GB estimate of the 2035 split — a labelled
+#      cross-pathway construction). ADEQUACY-INVARIANT (both classes
+#      are firm capacity: unserved/curtailment cannot move). The split
+#      DOES move the priced line-2 TOTAL and the £/MWh headline, not
+#      merely its attribution: the two classes carry different
+#      efficiencies (CCGT 0.4893 vs OCGT 0.349 HHV), so fuel+carbon per
+#      MWh differ and a different declared ratio would change the £
+#      number. The ratio choice is therefore a costed, pinned
+#      convention.
+#  S2. low_carbon_dispatchable 8.49 GW ("gas CCS and hydrogen", split
+#      not published) -> carried as ONE fleet entry under the open-set
+#      id `low_carbon_dispatchable` at published GW: NO component
+#      split is invented (the work order's
+#      exclusion-over-invented-splits principle applied to the split,
+#      not to the capacity — excluding 8.49 GW (and 38.28 GW in 2050)
+#      of the pathway's main firm backstop would turn the adequacy
+#      run into a strawman). Dispatches as firm plant on its own
+#      documented merit rung; UNCOSTED and UNPRICED, with magnitude
+#      named in the cost-stack coverage statement.
+#  S3. ccs_biomass (BECCS) 1.29 GW -> the open-set id `beccs` at
+#      published GW. The data file's partial-coverage trap (folding
+#      into `biomass` would exclude unabated biomass, which sits
+#      inside other_generation) is defused by NOT using the biomass
+#      id and carrying other_generation as its own entry (below).
+#      Uncosted, named.
+#  Plus: other_generation 7.57 GW ("unabated biomass, EfW, hydro,
+#      CHP") -> one fleet entry under the open-set id
+#      `other_generation` at published GW, firm, uncosted, named — a
+#      DUKES apportionment would invent four numbers where the
+#      adequacy question needs none. NOTE the hydro inside it thereby
+#      runs unconstrained (no energy limit) — small,
+#      pathway-favourable, named. smart_demand_flexibility 22.0 GW is
+#      EXCLUDED with magnitude (a peak-GW DSR quantity, not a storage
+#      pair — the e5 ruling; adequacy-ADVERSE bias, named on every
+#      unserved quote).
+#
+# CB7 STORAGE PRECISION STAMPS (review condition 5): the energy_gwh
+# values below are the report Table 7.5.1 ROUNDED INTEGERS as
+# published (battery "21 / 54"; medium-duration "6 / 312" excl.
+# hydrogen) — no machine-readable GWh series exists. The stamps are
+# machine-carried in pathways-published.toml and asserted by the pins;
+# any storage-sensitive CCC result carries the rounding caveat. The
+# CCC "medium-duration" volume (~55 h at published GW) is a
+# storable-energy PLANNING VOLUME, not a single-plant spec — carried
+# as the pumped_hydro fold per the fes-pathway precedent.
+
+schema_version = 8   # v8: version line only (no heating resource_depth_m set; docs/03 migration)
+name = "ccc-cb7-bp-2035"
+description = "CCC CB7 Balanced Pathway 2035 fleet (UK-as-GB, declared) under 2024 weather: single-zone, 2024 demand shape scaled to 443.541 TWh (surplus electrolysis excluded — wedge declared), autarkic (Stage 7 published-pathway pack)"
+
+[horizon]
+start = "2024-01-01T00:00:00Z"
+end   = "2024-12-31T23:30:00Z"
+weather_years = [2024]
+
+[[zones]]
+id = "GB"
+
+[zones.demand]
+base_profile = "data/packs/2024/processed/demand_2024.parquet"
+column = "underlying_demand"
+# 443.541 TWh / 261.8258865 TWh (measured 2024 trace total) — the
+# CCC's own headline basis, EXCLUDING 29 TWh surplus electrolysis
+# (header: demand basis + wedge).
+annual_scale = 1.6940303570785387
+
+# --- Dispatchable fleet ---
+
+[[zones.fleet]]
+technology = "nuclear"
+capacity_gw = 6.09               # sheet 7.5.3 row 13 (unambiguous mapping)
+
+[[zones.fleet]]
+technology = "beccs"
+capacity_gw = 1.29               # split decision S3
+
+[[zones.fleet]]
+technology = "other_generation"
+capacity_gw = 7.57               # declared rule (header): published bucket, no invented split
+
+[[zones.fleet]]
+technology = "low_carbon_dispatchable"
+capacity_gw = 8.49               # split decision S2
+
+[[zones.fleet]]
+technology = "ccgt"
+capacity_gw = 19.2129            # split decision S1: 29.71 x 12.9138/19.9693
+
+[[zones.fleet]]
+technology = "ocgt"
+capacity_gw = 10.4971            # split decision S1: 29.71 - 19.2129
+
+# --- Weather-driven (2024 ERA5 CF traces) ---
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 70.0               # sheet 7.5.3 row 15 (= 7.5.4 milestone)
+capacity_factor_trace = "data/packs/2024/processed/gb_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 28.89
+capacity_factor_trace = "data/packs/2024/processed/gb_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 70.01
+capacity_factor_trace = "data/packs/2024/processed/gb_solar_cf_2024.parquet"
+
+# EXCLUDED WITH MAGNITUDE: smart_demand_flexibility 22.0 GW (header).
+
+# --- Storage (rounded-integer GWh stamps travel — header) ---
+
+[[zones.storage]]
+kind = "pumped_hydro"
+power_gw = 5.71                  # "medium-duration (excl. hydrogen)" milestone, sheet 7.5.4
+energy_gwh = 312.0               # Table 7.5.1 "6 / 312" — ROUNDED INTEGER as published
+round_trip_efficiency = 0.76
+dispatch_order = 1
+
+[[zones.storage]]
+kind = "battery"
+power_gw = 21.04
+energy_gwh = 54.0                # Table 7.5.1 "21 / 54" — ROUNDED INTEGER as published
+round_trip_efficiency = 0.88
+dispatch_order = 2
+
+# --- Interconnection: published 20.938 GW, INERT (autarky) ---
+
+[[links]]
+name = "aggregate-interconnection-inert"
+from = "GB"
+to = "EXT"
+capacity_gw = 20.938
+availability = 0.0
+
+[dispatch]
+policy = "rule_based"
+
+[pricing]
+reference = "data/reference/prices-2024.toml"
+
+[pricing.fuel_price.gas]
+path = "data/packs/2024/processed/gas_sap_daily_2024.parquet"
+column = "sap_gbp_per_mwh_hhv"
+
+[pricing.srmc.ccgt]
+fuel = "gas"
+efficiency = "ccgt"
+
+[pricing.srmc.ocgt]
+fuel = "gas"
+efficiency = "ocgt"

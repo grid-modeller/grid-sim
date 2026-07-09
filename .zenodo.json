@@ -1,0 +1,21 @@
+{
+  "title": "grid-sim: a GB electricity system simulator",
+  "description": "A deterministic Rust simulator of the GB electricity system coupling half-hourly chronological dispatch (energy adequacy) with swing-equation event simulation (system stability), validated against observed 2024 GB outturn. Every published number is regenerable from a scenario file, a data-pack checksum, and the engine git hash.",
+  "creators": [
+    {
+      "name": "Lyon, Richard"
+    }
+  ],
+  "license": "MIT",
+  "upload_type": "software",
+  "access_right": "open",
+  "keywords": [
+    "electricity system",
+    "energy adequacy",
+    "grid stability",
+    "Great Britain",
+    "dispatch simulation",
+    "renewable energy",
+    "Rust"
+  ]
+}

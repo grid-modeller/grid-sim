@@ -1,0 +1,180 @@
+# Per-technology inertia constants H for docs/03 `Technology.inertia_h`
+# (GVA.s per GVA of machine rating, i.e. seconds) and the `synchronous`
+# flag. Assembled 2026-07-03 (data engineer). Every value carries its
+# citation; central values are choices within cited ranges, made visible
+# here so the supervisor can overrule per scenario.
+#
+# CONVENTIONS
+# - H is quoted on the machine MVA base (kinetic energy at rated speed /
+#   MVA rating), the universal convention (ERCOT 2018, fn.2-3). System
+#   inertia = sum(H_i * MVA_i) over SYNCHRONISED machines — docs/04 Stage 6
+#   acceptance: "Inertia at each hour equals sum(H x MVA) of dispatched
+#   synchronous plant."
+# - docs/03 capacities are Power (GW), i.e. MW not MVA. MVA = MW / power
+#   factor (typically 0.85-0.95 for large sets). Applying H per GW of
+#   capacity understates kinetic energy by that factor. The scenario
+#   builder must pick one convention: either scale H by 1/pf here, or
+#   carry MVA. NOT decided in this file — flagged for the Stage 6 design.
+# - A unit contributes inertia while SYNCHRONISED, roughly independent of
+#   loading (including pumped storage while pumping). A capacity-weighted
+#   fleet H overstates inertia unless multiplied by the dispatched/
+#   synchronised fraction.
+#
+# SOURCES (retrieved 2026-07-03)
+# [ERCOT18]  "Inertia: Basic Concepts and Impacts on the ERCOT Grid", ERCOT,
+#   2018, Table 1 (p.5) — measured registration data for a real fleet.
+#   https://www.ercot.com/files/docs/2018/04/04/Inertia_Basic_Concepts_Impacts_On_ERCOT_v0.pdf
+#   sha256 b56ba415380e1e3691f5226036ab432e381b91eb8d24df883b983679e6815829
+# [FG19]  Fernandez-Guillamon et al., "Analysis of power system inertia
+#   estimation in high wind power plant integration scenarios", IET RPG 13
+#   (2019); arXiv:2005.02091 postprint, Table 1 (p.2) — literature survey
+#   of H by plant type incl. Kundur 1994 (thermal 2-pole 2.5-6 s, 4-pole
+#   4-10 s; hydro 2-4 s).
+#   https://arxiv.org/pdf/2005.02091
+#   sha256 8da5ae9e3caa9b70cbe24265f758733c5ab3968aa07ee4b08e1d74efc05dd456
+# [KRA22]  Kraljic, "Inertia constants for individual power plants",
+#   arXiv:2210.03661 (2022) — H reconstructed for GB BM units from NG ESO
+#   published aggregate inertia: GB thermal (CCGT, coal, biomass, gas) in
+#   3-10 s (p.3); two GB pumped-storage units 1.48/1.54 GVA.s vs 1.59
+#   GVA.s in NG ESO Stability Pathfinder data (p.3); GB small hydro sits
+#   above the 2-4 s literature band (p.3).
+#   https://arxiv.org/pdf/2210.03661
+#   sha256 b73f0854ad04aa192ac3e9ea2f5820b3138b581b6a941f261e364dc5396f81fe
+# NOT FOUND: no NESO publication giving per-technology H for the GB fleet
+# was located (NESO estimates system inertia from a demand/embedded-output
+# model, not a public unit register — ESO 9-Aug appendices, Appendix M
+# Q42). Per-unit GB values are not public; [KRA22] is the closest evidence.
+
+schema = "inertia-constants-v1"
+
+[technologies.ccgt]
+h_s = 5.0
+h_range_s = [4.0, 6.0]
+synchronous = true
+# [FG19] Table 1: combined cycle 115 MW = 4.3 s; gas 90-120 MW = 5 s;
+# thermal 1000 MW = 4-5 s. [ERCOT18] Table 1: combined cycle units 1.1-9 s
+# (GT and ST components registered separately). [KRA22]: GB thermal 3-10 s.
+# Central 5.0 s for a whole CCGT block (GT + ST on common or paired shafts).
+
+[technologies.ocgt]
+h_s = 4.0
+h_range_s = [2.5, 6.0]
+synchronous = true
+# [ERCOT18] Table 1: combustion turbines 1-12.5 s (very wide; small
+# aeroderivatives at the bottom, heavy frames at the top). [FG19] gas
+# 90-120 MW = 5 s. Central 4.0 s; low confidence, small GB fleet.
+
+[technologies.nuclear]
+h_s = 4.5
+h_range_s = [3.5, 7.0]
+synchronous = true
+# [ERCOT18] Table 1: nuclear 3.8-4.34 s (US 1800-rpm 4-pole machines).
+# [FG19] Table 1: nuclear 100-1400 MW = 4 s; Kundur 4-pole thermal 4-10 s.
+# GB fleet is mostly 3000-rpm AGR sets (2-pole band 2.5-6 s) plus Sizewell B
+# (1500-rpm). Central 4.5 s. The often-quoted "5-7 s" for nuclear is at the
+# top of, not central to, the measured evidence.
+
+[technologies.coal]
+h_s = 4.0
+h_range_s = [2.9, 5.0]
+synchronous = true
+# [ERCOT18] Table 1: coal 2.9-4.5 s. [FG19]: steam 130 MW = 4 s, 60 MW =
+# 3.3 s; Kundur 2-pole 2.5-6 s. Central 4.0 s. (GB coal closed 2024-09-30;
+# needed for historical scenarios.)
+
+[technologies.biomass]
+h_s = 4.0
+h_range_s = [2.9, 5.0]
+synchronous = true
+# Converted coal steam units (Drax, Lynemouth) — same machines as coal;
+# same citations. Central 4.0 s.
+
+[technologies.hydro]
+h_s = 3.0
+h_range_s = [2.0, 4.0]
+synchronous = true
+# [FG19] Table 1 / Kundur: hydro 2-4 s (slower machines toward 2-3 s).
+# [KRA22] finds GB run-of-river/small hydro (mean 45 MW) above this band —
+# H scales inversely with rating — so 3.0 central is, if anything,
+# conservative for the small GB hydro fleet.
+
+[technologies.pumped_storage]
+h_s = 4.5
+h_range_s = [2.5, 5.0]
+synchronous = true
+# [KRA22] p.3: two GB pumped-storage units reconstructed at 1.48/1.54
+# GVA.s vs 1.59 GVA.s in NG ESO Stability Pathfinder data. On a ~330 MVA
+# unit base (Dinorwig-class 288 MW sets) 1.59 GVA.s implies H ~ 4.8 s —
+# derived here, not stated in the source. High-speed (500 rpm)
+# pump-turbines sit above the generic hydro band. Central 4.5 s.
+# NOTE: contributes inertia in BOTH pumping and generating modes while
+# synchronised; a dispatch-keyed inertia sum must include pumping hours.
+
+[technologies.onshore_wind]
+h_s = 0.0
+synchronous = false
+# Inverter-coupled; "non-synchronous, inverter-based, resources like wind
+# and solar generation do not contribute to synchronous inertia" ([ERCOT18]
+# p.5, Table 1: wind H = 0). Physical rotor energy exists but is decoupled;
+# synthetic inertia is a control service, not a default (ADR-2 models it,
+# if at all, as a response service — do not give wind an H).
+
+[technologies.offshore_wind]
+h_s = 0.0
+synchronous = false
+# As onshore_wind. Hornsea One's behaviour on 9 Aug 2019 (control-system
+# deload, not inertial response) is the case study for why converter
+# plant's contribution is a software property, not a physical constant.
+
+[technologies.solar]
+h_s = 0.0
+synchronous = false
+# [ERCOT18] Table 1: solar PV H = 0. No rotating mass at all.
+
+[technologies.battery]
+h_s = 0.0
+synchronous = false
+# Inverter-coupled. Zero inertia, but the premier fast-response provider
+# (472 MW of battery response deployed on 9 Aug 2019 — ESO report p.4);
+# model as response service (dynamic containment), never as H.
+
+[technologies.interconnector]
+h_s = 0.0
+synchronous = false
+# All GB external links are HVDC: zero inertia transfer from the
+# neighbouring synchronous area. An importing interconnector is also a
+# candidate largest-loss (NEMO at 1,000 MW was GB's largest secured infeed
+# on 9 Aug 2019).
+
+# ---------------------------------------------------------------------------
+# Mapping to the reliability classification
+# (docs/notes/reliability-classification.md): firm/variable is about
+# correlated weather failure; synchronous/non-synchronous is about physical
+# coupling. On the 2024 roster they happen to align almost everywhere —
+# every firm member (gas, nuclear, biomass, hydro, coal, oil) is
+# synchronous, every variable member (wind, solar, imports) is
+# non-synchronous. The classifications must stay independent flags because
+# the alignment is contingent, and it already fails at the edges:
+#   - pumped storage: EXCLUDED from firm/variable, but synchronous with
+#     real H in both modes — it exists for stability accounting even
+#     though it vanishes from the firm-share metric;
+#   - batteries: storage (fourth category), non-synchronous, yet the
+#     fastest frequency-response asset — "no inertia" is not "no
+#     stability contribution";
+#   - imports: variable AND non-synchronous, but for unrelated reasons
+#     (weather correlation vs HVDC coupling) — a future AC-coupled or
+#     grid-forming link would break the coincidence;
+#   - biomass: firm and synchronous — aligned, and the reminder that the
+#     subsidy/carbon case against it lives in a different lane from both
+#     classifications.
+# ---------------------------------------------------------------------------
+
+# System-level anchors for sanity checks (GVA.s):
+[system_anchors]
+gb_9aug2019_pre_event = 219.632     # ESO appendices Appendix M Q42 (16:52)
+gb_9aug2019_headline = 210.0        # ESO report Table 4 (p.24)
+gb_1jul2019 = 201.0                 # ESO report Table 4 (p.24)
+gb_min_inertia_policy_2024 = 120.0  # FRCR 2024 p.10 (implemented 2024-06-19)
+gb_min_inertia_ambition_2025 = 102.0 # FRCR 2024 p.10
+gb_observed_range_2020_22 = [110.0, 350.0] # [KRA22] Figs. 1/3, market-provided
+                                    # inertia incl. TSO actions; floor era 140 GVA.s

@@ -1,0 +1,410 @@
+# The 9 August 2019 GB frequency event — committed reference record for the
+# Stage 6 acceptance test (docs/04: "Reproduce a documented GB event ... on
+# nadir given published system conditions"). Assembled 2026-07-03 (data
+# engineer). Every number carries its citation; nothing here is fetched at
+# build time. Tolerance evidence: docs/notes/stage-6-evidence-report.md.
+#
+# Page references are to the printed page numbers of the source PDFs.
+# All clock times are BST (UTC+1); UTC equivalents given for the anchors the
+# engine consumes (docs/02 ADR-3: internal time is UTC).
+
+schema = "stability-event-reference-v1"
+event_id = "gb-2019-08-09-lfdd"
+event_date = 2019-08-09
+
+# ---------------------------------------------------------------------------
+# Sources (primary record). Retrieved 2026-07-03; sha256 of the retrieved
+# PDFs recorded so quotes remain verifiable if URLs rot. None of these
+# documents is redistributed in this repo; facts and short quotes only.
+# ---------------------------------------------------------------------------
+
+[sources.eso_technical_report]
+title = "Technical Report on the events of 9 August 2019"
+author = "National Grid ESO (final report to Ofgem)"
+published = 2019-09-06
+url = "https://www.ofgem.gov.uk/sites/default/files/docs/2019/09/eso_technical_report_-_final.pdf"
+retrieved = 2026-07-03
+sha256 = "4ceee8ac7f32fbd16c712e7eed4942880f0f0a477424ae026b757a85d76da81e"
+licence = "NG ESO publication hosted by Ofgem; quoted with attribution, not redistributed"
+
+[sources.eso_appendices]
+title = "Appendices to the Technical Report on the events of 9 August 2019"
+author = "National Grid ESO"
+published = 2019-09-06
+url = "https://www.ofgem.gov.uk/sites/default/files/docs/2019/09/eso_technical_report_-_appendices_-_final.pdf"
+retrieved = 2026-07-03
+sha256 = "33d5dab5fa9b8de42ec72d2453037aa897192ba58e1790f3f37ce57f480492a3"
+licence = "NG ESO publication hosted by Ofgem; quoted with attribution, not redistributed"
+
+[sources.ofgem_report]
+title = "9 August 2019 power outage report (investigation conclusions)"
+author = "Ofgem"
+published = 2020-01-03
+url = "https://www.ofgem.gov.uk/sites/default/files/docs/9_august_2019_power_outage_report.pdf"
+retrieved = 2026-07-03
+sha256 = "4a6def3f7a80e9686742921270e626d745942491082729983de9407ec15af2cb"
+licence = "Ofgem publication; quoted with attribution, not redistributed"
+
+[sources.e3c_final]
+title = "GB power system disruption on 9 August 2019: Final report"
+author = "Energy Emergencies Executive Committee (E3C)"
+published = 2020-01-03
+url = "https://assets.publishing.service.gov.uk/media/5e0e1fa9e5274a0fa7b4d96a/e3c-gb-power-disruption-9-august-2019-final-report.pdf"
+retrieved = 2026-07-03
+sha256 = "2b20c53b19df7c1d2c24654d3e08ad3e7118b9dcc5ef18341bb6c0e7fb4654c5"
+licence = "Open Government Licence v3.0"
+
+[sources.neso_frequency_data]
+title = "System Frequency (historic 1-second data), August 2019 (f 2019 8.csv)"
+author = "NESO Data Portal, dataset system-frequency-data"
+url = "https://api.neso.energy/dataset/cb1cc925-ecd8-4406-b021-3a3f368196e1/resource/819a0821-cc6d-4909-a1ea-7dba5cab0c33/download/f-2019-8.zip"
+retrieved = 2026-07-03
+sha256_zip = "bce1b0d8bbbbbbaa1d8574a43b0352559e0290102bc6787eff0af53d02811d86"
+sha256_csv = "8a519e06951d52438f5a5d178e3ca40ddb1c40d2c6b235835efa6e667d7be6b1"
+licence = "NESO Open Data Licence (reuse/redistribution with attribution)"
+notes = "1 Hz sampling, 1 mHz reported resolution; timestamps are local (BST in August). The engine's fixture trace can be fetched from this resource; the frequency anchors below were computed from it."
+
+[sources.frcr_2024]
+title = "Frequency Risk and Control Report and Methodology 2024"
+author = "NESO"
+url = "https://www.neso.energy/document/321911/download"
+retrieved = 2026-07-03
+sha256 = "de7f3c7bd5047588d91f7b3075168540281a4a2666c858297996248b62faa37a"
+licence = "NESO publication; quoted with attribution, not redistributed"
+
+# ---------------------------------------------------------------------------
+# Pre-event system conditions — the inputs the Stage 6 engine takes.
+# ---------------------------------------------------------------------------
+
+[pre_event]
+# ESO technical report p.10 (§3.1): "approximately 32GW of transmission
+# connected generation capacity available ... Over 30% of this capacity was
+# being provided by wind generation with an expected peak output of 10GW,
+# and 50% was being provided by conventional units. ... The overall demand
+# was forecast to reach 29GW".
+transmission_generation_available_gw = 32.0
+wind_capacity_share = 0.30
+demand_gw = 29.0                    # ESO report Table 4 (p.24): "Demand ... 29 GW"
+
+# System inertia. Two published values for the same moment:
+#  - ESO report Table 4 (p.24): "Inertia ... 210GVAs" (comparison table vs
+#    1 July 2019: 201 GVAs, demand 28 GW).
+#  - ESO appendices, Appendix M Q42 (ESO answers to E3C): estimate
+#    "immediately prior to the trip" at 16:52 = 219,632 MVA.s. Q42 also
+#    states: "The ESO does not currently measure system inertia directly
+#    but instead estimates it using a model."
+# The ~5% spread between the two official figures is itself tolerance
+# evidence (see stage-6-evidence-report.md §3).
+inertia_gva_s = 210.0               # headline (Table 4)
+inertia_gva_s_appendix_q42 = 219.632 # per-timestamp estimate, 16:52
+
+largest_secured_infeed_mw = 1000    # ESO report timeline 16:52:26 (p.13): "ESO
+                                    # securing for a loss of power infeed of
+                                    # 1000MW"; appendices Appendix H: largest
+                                    # single infeed loss on the day was a
+                                    # 1,000 MW interconnector; "Typically, this
+                                    # loss will be Sizewell (1,260 MW) or an
+                                    # interconnector (1,000 MW)".
+
+# Frequency response being held (ESO report p.25): "the amount of low
+# frequency response being held was 1,022MW primary and 1,314MW secondary".
+# Of validated holdings, 89% of primary (841MW) and 88% of secondary
+# (1055MW) "performed as expected" (p.25). Minimum dynamic response
+# requirement at the time: 550 MW (appendices, "Response provision").
+response_primary_mw = 1022
+response_secondary_mw = 1314
+response_primary_validated_delivered_mw = 841
+response_secondary_validated_delivered_mw = 1055
+min_dynamic_response_requirement_mw = 550
+
+# Battery contribution called out in the ESO summary (p.4): response and
+# reserve "included 472MW of battery storage".
+battery_response_mw = 472
+
+# ---------------------------------------------------------------------------
+# Infeed losses — ESO technical report Table 2 (p.14), the authoritative
+# cumulative-loss table. Ofgem variants noted per entry.
+# ---------------------------------------------------------------------------
+
+[[losses]]
+name = "little_barford_st1c"
+mw = 244
+cumulative_mw = 244
+time_local = "16:52:34"
+mechanism = "steam turbine speed-sensor discrepancy -> automatic shutdown (Ofgem 2.4.4, p.17)"
+# NOTE: early accounts gave the ST loss as ~640 MW; the final record is
+# 244 MW for the ST, with Little Barford's TOTAL staged loss = 641 MW
+# (244 + 210 + 187; Ofgem 3.27, pp.30-31: "brought the total loss of
+# generation to 641MW").
+
+[[losses]]
+name = "hornsea_one"
+mw = 737
+cumulative_mw = 981
+time_local = "16:52:33.835"
+mechanism = "voltage-control instability after transmission fault; deloaded 799 MW -> 62 MW (ESO timeline p.13; Ofgem 2.4.3, p.17)"
+
+[[losses]]
+name = "embedded_vector_shift"
+mw = 150
+cumulative_mw = 1131
+time_local = "16:52:33"
+mechanism = "loss-of-mains vector-shift protection at the transmission fault (ESO Table 2, p.14; estimated)"
+
+[[losses]]
+name = "embedded_rocof"
+mw = 350
+cumulative_mw = 1481
+time_local = "16:52:34"
+mechanism = "loss-of-mains RoCoF protection, legacy 0.125 Hz/s setting (ESO Table 2, p.14; estimated)"
+# Ofgem 2.4.6 (pp.17-18): "an estimated 350-430MW of distributed generation
+# tripped off"; Ofgem footnote 19 (p.18): inferred from a "500MW increase in
+# transformer loadings"; "total loss of distributed generation from vector
+# shift and RoCoF could have been up to 580MW". Range, not a point value.
+mw_range_ofgem = [350, 430]
+mw_total_lom_upper_ofgem = 580
+
+[[losses]]
+name = "little_barford_gt1a"
+mw = 210
+cumulative_mw = 1691
+time_local = "16:53:31"
+mechanism = "generator protection trip, excess steam pressure (ESO timeline p.14; Ofgem 2.4.10, p.18)"
+
+[[losses]]
+name = "embedded_under_frequency_49hz"
+mw = 200
+cumulative_mw = 1891   # not in ESO Table 2 (which sums infeed trips to 1,878 without this)
+time_local = "~16:53:35"
+mechanism = "under-frequency protection at 49 Hz; NET effect modelled from the trace (ESO p.22: 'The net effect of this disconnection has been modelled as a 200MW loss of generation. Protection operating at this frequency was not expected'); Ofgem 2.4.11 (p.18): net of known demand disconnections (trains, industrials)"
+
+[[losses]]
+name = "little_barford_gt1b"
+mw = 187
+cumulative_mw = 2078
+time_local = "16:53:58"
+mechanism = "manual trip by plant staff on safety grounds, after LFDD (Ofgem 2.4.15, p.19); 'subsumed by the LFDD reductions' (ESO timeline p.14)"
+
+[losses_totals]
+eso_table2_total_mw = 1878          # ESO Table 2 (p.14): infeed trips only, excl. the 200 MW @49Hz
+ofgem_cumulative_min_mw = 1990      # Ofgem 2.4.11 (p.18): "at least 1,990MW" incl. 200 MW @49Hz
+secured_events_total_mw = 1528      # appendices Appendix H: Hornsea 737 + Little Barford 641 +
+                                    # vector shift 150 = 1528 MW "significantly in excess of the
+                                    # level secured for (1,000MW)"
+largest_secured_infeed_mw = 1000
+# The acceptance anchor: total loss ~1.9x the largest secured infeed.
+
+# ---------------------------------------------------------------------------
+# Frequency anchors. Official values from the ESO timeline (pp.13-14);
+# measured values computed from the NESO 1-second frequency data
+# (sources.neso_frequency_data; 1 Hz sampling, so the true instantaneous
+# extremum can sit slightly below the sampled minimum).
+# ---------------------------------------------------------------------------
+
+[frequency]
+nominal_hz = 50.0
+pre_event_hz = 50.0                 # ESO timeline 16:52:26: "Frequency at 50.0Hz"
+pre_event_hz_measured = 49.995      # NESO 1-s data at 16:52:33 BST
+first_arrest_hz = 49.1              # ESO timeline 16:52:58: "Frequency drop is arrested at 49.1Hz"
+first_arrest_hz_measured = 49.083   # NESO 1-s data, minimum of first phase, at 16:52:59 BST
+plateau_hz = 49.2                   # ESO timeline 16:53:18: "Frequency recovers to 49.2Hz"
+lfdd_trigger_hz = 48.8              # ESO timeline 16:53:49.398: "Frequency breaches 48.8Hz trigger level"
+nadir_hz_measured = 48.787          # NESO 1-s data at 16:53:49 BST; only 1 sample < 48.8
+recovery_49_hz_measured = "16:54:14" # first 1-s sample >= 49.0 after nadir
+recovery_49_5_hz_measured = "16:55:00"
+restored_50_hz = "16:57:15"         # ESO timeline: "Frequency returns to 50Hz"
+# E3C final report p.14: "The LFDD scheme enabled the frequency to recover
+# to 48.9 Hz before the loss of the second gas turbine"; Ofgem 2.4.14
+# (p.19): frequency recovered above 48.8 Hz "within 200ms" of LFDD.
+
+[frequency.rocof_measured]
+# Computed from the NESO 1-s trace. RoCoF is window-definition dependent;
+# the convention is pinned here for reproducibility. Windows START AT THE
+# 16:52:34 BST SAMPLE (f = 49.921 Hz) — the first whole-second sample after
+# the 16:52:33.490 fault, coincident with the t+1s ST1C trip:
+#   mean_first_2s  = (f(16:52:34) - f(16:52:36)) / 2 = (49.921 - 49.633)/2
+#   mean_first_10s = (f(16:52:34) - f(16:52:44)) / 10
+#   max_1s         = max consecutive-sample drop in the descent
+#                    (16:52:34 -> 16:52:35, 49.921 - 49.770)
+window_start_local = "16:52:34"
+max_1s_hz_per_s = 0.151
+mean_first_2s_hz_per_s = 0.144
+mean_first_10s_hz_per_s = 0.065
+# Cross-check vs published inertia: f0*dP/(2*E) with E = 219.6 GVA.s gives
+# 0.129 Hz/s for the 1,131 MW cumulative loss and 0.169 Hz/s for 1,481 MW —
+# the measured 0.14-0.15 Hz/s sits inside, consistent with the staged loss
+# plus load damping.
+
+[frequency.event_times_utc]
+# UTC equivalents of the anchor timestamps (BST - 1h), for the engine.
+fault = "2019-08-09T15:52:33.490Z"
+first_arrest = "2019-08-09T15:52:58Z"
+gt1a_trip = "2019-08-09T15:53:31Z"
+lfdd_trigger = "2019-08-09T15:53:49.398Z"
+gt1b_trip = "2019-08-09T15:53:58Z"
+restored_50hz = "2019-08-09T15:57:15Z"
+seconds_fault_to_lfdd = 75.9
+
+# ---------------------------------------------------------------------------
+# System inertia through the event — ESO appendices, Appendix M Q42 (model
+# estimates, MVA.s converted to GVA.s).
+# ---------------------------------------------------------------------------
+
+[[inertia_trace]]
+time_local = "11:00"
+condition = "6 hours before the incident"
+gva_s = 201.353
+
+[[inertia_trace]]
+time_local = "16:52"
+condition = "immediately prior to the trip"
+gva_s = 219.632
+
+[[inertia_trace]]
+time_local = "16:52:34"
+condition = "LBAR ST1 trip and 500MW embedded generation loss"
+gva_s = 216.885
+
+[[inertia_trace]]
+time_local = "16:52:58"
+condition = "LFGT service kicked in"
+gva_s = 218.013
+
+[[inertia_trace]]
+time_local = "16:53:31"
+condition = "LBAR GT1A trip"
+gva_s = 216.177
+
+[[inertia_trace]]
+time_local = "16:53:49"
+condition = "LFDD operated, 931MW drop reported from DNOs"
+gva_s = 214.222
+
+[[inertia_trace]]
+time_local = "16:53:58"
+condition = "LBAR GT1B trip"
+gva_s = 212.386
+
+[[inertia_trace]]
+time_local = "16:57"
+condition = "frequency restored with additional units on"
+gva_s = 215.356
+
+# ---------------------------------------------------------------------------
+# Response deployment through the event (ESO timeline, pp.13-14).
+# ---------------------------------------------------------------------------
+
+[response_deployment]
+delivered_650_mw_by = "16:52:44"    # "at least 650MW"
+delivered_900_mw_by = "16:53:04"
+all_response_delivered_by = "16:53:31"
+stor_instructed_mw = 400            # "Since 16:53 ... overall amount 400MW"
+control_room_actions_mw = 1240      # by 16:57:15: "over 1,000MW of response and a
+                                    # further 1240MW of control room actions"
+
+# ---------------------------------------------------------------------------
+# LFDD outcome. Three published figures measure different things — do not
+# mix them (see stage-6-evidence-report.md §3).
+# ---------------------------------------------------------------------------
+
+[lfdd]
+stage_triggered = 1
+trigger_hz = 48.8
+demand_disconnected_dno_mw = 931    # ESO §4.3 (p.22): "The DNO's have indicated that
+                                    # 931MW (3.2%) of demand was automatically
+                                    # disconnected" (slightly below the 5% design block)
+demand_disconnected_net_mw = 892    # Ofgem 2.4.12 (p.19): "892MW of net demand was
+                                    # disconnected in total from the local distribution
+                                    # networks"
+net_reduction_seen_at_transmission_mw = 350  # Ofgem 2.4.13 (p.19): "the net demand
+                                    # reduction seen by the transmission system was only
+                                    # 350MW. This indicates that approximately 550MW of
+                                    # additional distributed generation was lost at this
+                                    # point."
+customers_disconnected = 1100000    # "c.1.1m customers (c. 1GW)" (ESO p.11)
+all_demand_restored_by = "17:37"    # ESO timeline p.14
+sp_distribution_erroneous_mw = 22   # E3C final p.24 fn.4: SPD disconnected 22 MW at
+                                    # 48.8 Hz on an incorrect LFDD relay setting (SPT
+                                    # area first stage is 48.5 Hz)
+
+# LFDD stage table, England & Wales (NGET area) — E3C final report, Annex A
+# Table 1 (p.24). SPT/SHET areas start at stage 5/4 respectively; totals:
+# NGET 60%, SPT 40%, SHET 40% of demand.
+lfdd_stages_england_wales = [
+  { stage = 1, hz = 48.80, percent_demand = 5.0 },
+  { stage = 2, hz = 48.75, percent_demand = 5.0 },
+  { stage = 3, hz = 48.70, percent_demand = 10.0 },
+  { stage = 4, hz = 48.60, percent_demand = 7.5 },
+  { stage = 5, hz = 48.50, percent_demand = 7.5 },
+  { stage = 6, hz = 48.40, percent_demand = 7.5 },
+  { stage = 7, hz = 48.20, percent_demand = 7.5 },
+  { stage = 8, hz = 48.00, percent_demand = 5.0 },
+  { stage = 9, hz = 47.80, percent_demand = 5.0 },
+]
+
+# ---------------------------------------------------------------------------
+# The counterfactual pin (second acceptance anchor): the ESO's own
+# simulation of a 1,000 MW loss under 9 August conditions.
+# ---------------------------------------------------------------------------
+
+[counterfactual_1000mw]
+# ESO report p.24 (Appendix I summary): "Two simulations have been carried
+# out for a loss of 1,000MW using the same inertia and demand ... In both
+# cases the frequency does not go below 49.5Hz". Corroborated by outturn:
+# 1 July 2019, NEMO tripped at 1,000 MW import (28 GW demand, 201 GVA.s,
+# 1,087 MW response held) and "frequency remains above 49.5Hz" (Table 4 and
+# Figure 11, pp.24-25).
+loss_mw = 1000
+min_frequency_floor_hz = 49.5
+comparison_day = 2019-07-01
+comparison_day_inertia_gva_s = 201
+comparison_day_demand_gw = 28
+comparison_day_response_mw = 1087
+
+# ---------------------------------------------------------------------------
+# Operating standards — at the event, and current (for Stage 6 limit checks).
+# ---------------------------------------------------------------------------
+
+[standards_2019]
+rocof_relay_limit_hz_per_s = 0.125  # legacy loss-of-mains setting; "the ESO must keep
+                                    # the RoCoF at less than 0.125Hz/s to prevent loss
+                                    # of this generation", ~2 GW connected via such
+                                    # relays (ESO appendices, "Managing Rate of Change
+                                    # of Frequency")
+statutory_range_hz = [49.5, 50.5]
+sqss_normal_infeed_loss_mw = 1320   # SQSS Normal Infeed Loss Risk (freq must stay
+                                    # within 49.5-50.5 Hz); GSR015 decision (Ofgem 2014)
+sqss_infrequent_infeed_loss_mw = 1800 # SQSS Infrequent Infeed Loss Risk since
+                                    # 2014-04-01 (freq >= 49.2 Hz, restored to 49.5
+                                    # within 60 s)
+largest_loss_typical_mw = [1260, 1000] # Sizewell B / single interconnector (ESO
+                                    # appendices, "What determines RoCoF?")
+inertia_floor_gva_s = 140           # ESO operational floor cited in Kraljic (arXiv
+                                    # 2210.03661, Fig. 3) for 2020-22; NG ESO policy
+                                    # pre-FRCR-2023
+
+[standards_current]
+# ALoMCP (post-event programme, ENA/NG ESO): loss-of-mains RoCoF relays
+# re-set to 1.0 Hz/s with 500 ms definite time delay; vector-shift LoM
+# protection removed; compliance deadline 2022-08-31.
+rocof_relay_limit_hz_per_s = 1.0
+rocof_relay_delay_s = 0.5
+alomcp_deadline = 2022-08-31
+# FRCR 2024 (NESO): minimum inertia requirement reduced 140 -> 130 GVA.s
+# (2024-02-28) -> 120 GVA.s (2024-06-19) (p.10); 2025 ambition 102 GVA.s,
+# "based on an assumed largest loss of 1800 MW and ensures the Rate of
+# Change of Frequency (RoCoF) remains within 0.5 Hz/s" (p.10). Residual
+# legacy relay tranches post-ALoMCP: 20-90 MW at 0.125 Hz/s, 10-40 MW at
+# 0.2 Hz/s (p.14). Risk appetite: 1-in-30-year 48.8 Hz (LFDD) event (p.6).
+min_inertia_gva_s = 120
+min_inertia_ambition_2025_gva_s = 102
+design_rocof_limit_hz_per_s = 0.5
+largest_loss_planning_mw = 1800
+lfdd_stage1_hz = 48.8
+sqss_infrequent_loss_floor_hz = 49.2  # FRCR 2024 impact level L1 (p.8):
+                                    # 49.2 <= f < 49.5 Hz for max 60 s is the
+                                    # current SQSS/SOGL standard. NOTE: docs/04
+                                    # Stage 6 says "49.2 Hz LFDD" — LFDD is 48.8 Hz;
+                                    # 49.2 Hz is the SQSS infrequent-loss floor.
+                                    # Flagged in stage-6-evidence-report.md, not
+                                    # silently corrected.

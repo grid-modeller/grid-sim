@@ -1,0 +1,6 @@
+# Pinned toolchain: results = f(scenario, data-pack checksum, engine git hash)
+# requires a reproducible compiler too (docs/06). Matches workspace
+# rust-version in Cargo.toml.
+[toolchain]
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]

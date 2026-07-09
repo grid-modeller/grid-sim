@@ -1,0 +1,35 @@
+# Module 4 sweep spec (docs/04 Stage 4 demo artefact; docs/07 Module 4,
+# physical triangle): the storage × overbuild surface around the Stage 3
+# pinned overbuild-curve points.
+#
+# NOT a scenario file — a sweep spec (`grid-cli sweep grid --spec ...`;
+# schema: grid_adequacy::sweep::SweepSpec). The base scenario is the
+# RS-lean file (~1.35x supply, the RS-comparable point), so the
+# fleet_scale axis below spans supply ~1.15x demand (the Stage 3
+# infeasibility cliff's neighbourhood: 0.85 x 1.35) to ~1.96x (just
+# past the Stage 3 headline 1.92x point: 1.45 x 1.35). The store axis
+# spans 10..80 TWh store-side, bracketing every pinned requirement
+# (23.9 / 28.3 / 58.4 TWh).
+#
+# Each grid point is a full 1985-2024 dispatch run; the recorded
+# unserved energy gives the zero-unserved feasibility frontier — the
+# physical triangle. Iso-COST contours arrive with the Stage 7 cost
+# stack (docs/07 Module 4 "costed").
+#
+# Run (from the repo root):
+#   cargo run --release -p grid-cli -- sweep grid \
+#     --spec scenarios/sweeps/module4-storage-overbuild.toml \
+#     --out runs/module4-surface
+
+scenario = "scenarios/royal-society-37y-lean.toml"
+name = "module4-storage-overbuild-surface"
+
+[[dimensions]]
+target = "fleet_scale"
+technologies = ["offshore_wind", "onshore_wind", "solar"]
+range = { start = 0.85, stop = 1.45, count = 8 }
+
+[[dimensions]]
+target = "store_energy"
+store_index = 0
+range_gwh = { start = 10000.0, stop = 80000.0, count = 8 }

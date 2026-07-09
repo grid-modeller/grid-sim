@@ -1,0 +1,30 @@
+[package]
+name = "grid-adequacy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "grid-sim energy adequacy engine: chronological dispatch (Stage 1+)"
+
+[dependencies]
+grid-core = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
+rayon = { workspace = true }
+# good_lp + HiGHS: the D12 perfect-foresight LP dispatch core (ADR-10).
+good_lp = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+arrow-array = { workspace = true }
+arrow-schema = { workspace = true }
+parquet = { workspace = true }
+
+[lints]
+workspace = true
+
+# docs/06 benchmark smoke tests (plain-timing harness, no framework).
+[[bench]]
+name = "stage4"
+harness = false

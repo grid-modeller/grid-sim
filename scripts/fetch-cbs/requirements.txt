@@ -1,0 +1,8 @@
+# Pinned environment for the CBS 2024 NL anchor pack (venv pattern per
+# scripts/era5-cf precedent; same venv as fetch-entsoe:
+# ~/.local/share/grid-sim/entsoe-venv, Python 3.13.11). Parquet bytes
+# (hence the committed manifest data/packs/cbs-2024.sha256) are
+# conditional on these exact versions.
+requests==2.34.2
+pandas==3.0.3
+pyarrow==24.0.0

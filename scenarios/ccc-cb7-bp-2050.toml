@@ -1,0 +1,115 @@
+# CCC Seventh Carbon Budget "Balanced Pathway" 2050 fleet under 2024
+# weather — Stage 7 published-pathway scenario. ALL declarations of
+# scenarios/ccc-cb7-bp-2035.toml apply verbatim (UK-as-GB unadjusted;
+# the electrolysis demand-basis wedge; the constructed peak; split
+# decisions S1-S3 + other_generation + smart-flexibility exclusion;
+# CB7 rounded-integer storage stamps; the shared FES-file run
+# conventions). This file records the 2050 quantities and deltas.
+#
+# 2050-specific notes:
+#  - Demand 692.025 TWh EXCLUDING 89 TWh surplus electrolysis (the
+#    declared basis): under-loads the fleet ~13% (89/692) — adequacy
+#    FAVOURABLE (unserved a fortiori), curtailment overstated as waste
+#    by up to 89 TWh (CCC-intended electrolysis feedstock). The
+#    FES-vs-CCC wedge at 2050: like-for-like gross-incl-electrolysis
+#    is ~781 (CCC) vs ~785 (FES EE) TWh — nearly identical, where the
+#    headline 692-vs-785 suggests a 93 TWh gap.
+#  - unabated_gas = 0 GW in 2050: split decision S1 is moot; the CCC
+#    2050 firm stack is nuclear + BECCS + other_generation +
+#    low_carbon_dispatchable ONLY. LCD 38.28 GW (S2) is the largest
+#    unmapped bucket in the whole pack and here carries the pathway's
+#    deep backup — uncosted, unpriced, on its own merit rung, with the
+#    magnitude named on every cost quote.
+#  - No gas fleet => NO SRMC recipes (the engine rejects a recipe for
+#    a technology outside the fleet): line 2 of the cost stack is
+#    structurally zero — no priced fuel chain exists anywhere in the
+#    CCC 2050 stack (LCD/BECCS fuel costs are named exclusions).
+
+schema_version = 8   # v8: version line only (no heating resource_depth_m set; docs/03 migration)
+name = "ccc-cb7-bp-2050"
+description = "CCC CB7 Balanced Pathway 2050 fleet (UK-as-GB, declared) under 2024 weather: single-zone, 2024 demand shape scaled to 692.025 TWh (surplus electrolysis excluded — wedge declared), autarkic (Stage 7 published-pathway pack)"
+
+[horizon]
+start = "2024-01-01T00:00:00Z"
+end   = "2024-12-31T23:30:00Z"
+weather_years = [2024]
+
+[[zones]]
+id = "GB"
+
+[zones.demand]
+base_profile = "data/packs/2024/processed/demand_2024.parquet"
+column = "underlying_demand"
+# 692.025 TWh / 261.8258865 TWh (measured 2024 trace total).
+annual_scale = 2.6430732623529183
+
+# --- Dispatchable fleet ---
+
+[[zones.fleet]]
+technology = "nuclear"
+capacity_gw = 10.98
+
+[[zones.fleet]]
+technology = "beccs"
+capacity_gw = 1.29               # split decision S3
+
+[[zones.fleet]]
+technology = "other_generation"
+capacity_gw = 5.5                # declared rule (2035 header)
+
+[[zones.fleet]]
+technology = "low_carbon_dispatchable"
+capacity_gw = 38.28              # split decision S2 — the pathway's deep backup, uncosted (named)
+
+# --- Weather-driven (2024 ERA5 CF traces) ---
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 125.0
+capacity_factor_trace = "data/packs/2024/processed/gb_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 37.41
+capacity_factor_trace = "data/packs/2024/processed/gb_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 106.4
+capacity_factor_trace = "data/packs/2024/processed/gb_solar_cf_2024.parquet"
+
+# EXCLUDED WITH MAGNITUDE: smart_demand_flexibility 32.55 GW.
+
+# --- Storage (rounded-integer GWh stamps travel) ---
+
+[[zones.storage]]
+kind = "pumped_hydro"
+power_gw = 6.92
+energy_gwh = 433.0               # Table 7.5.1 "7 / 433" — ROUNDED INTEGER as published
+round_trip_efficiency = 0.76
+dispatch_order = 1
+
+[[zones.storage]]
+kind = "battery"
+power_gw = 35.11
+energy_gwh = 139.0               # Table 7.5.1 "35 / 139" — ROUNDED INTEGER as published
+round_trip_efficiency = 0.88
+dispatch_order = 2
+
+# --- Interconnection: published 27.938 GW, INERT (autarky) ---
+
+[[links]]
+name = "aggregate-interconnection-inert"
+from = "GB"
+to = "EXT"
+capacity_gw = 27.938
+availability = 0.0
+
+[dispatch]
+policy = "rule_based"
+
+# No SRMC recipes: no gas fleet exists in 2050 (header note). The
+# reference is retained so the pricing loader has its carbon/efficiency
+# tables; nothing is priced.
+[pricing]
+reference = "data/reference/prices-2024.toml"

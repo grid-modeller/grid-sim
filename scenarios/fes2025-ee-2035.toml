@@ -1,0 +1,209 @@
+# FES 2025 "Electric Engagement" 2035 fleet under 2024 weather —
+# Stage 7 published-pathway scenario (docs/04 Stage 7: "scenario pack
+# for published pathways"). Data source: data/reference/
+# pathways-published.toml (pathways-published-v1; evidence
+# docs/notes/stage7-pathways-data-report.md, reviewed — conditions 5-8
+# of the data review bind this file). Pinned acceptance tests:
+# grid-adequacy/tests/acceptance_stage7_pathways.rs (every capacity
+# below is asserted equal to the parsed reference, or to a declared,
+# documented split of it).
+#
+# THE QUESTION THIS SCENARIO ANSWERS (stated, per the work order): how
+# does the FES 2025 Electric Engagement 2035 fleet perform under the
+# OBSERVED 2024 weather year and the 2024 demand SHAPE scaled to the
+# pathway's annual total? It is a single-weather-year instrument — not
+# a multi-year adequacy assessment (the 1985-2024 record variants are
+# future work) and not NESO's own modelled year.
+#
+# CONVENTIONS (each named; direction of bias stated):
+#  1. DEMAND = 2024 underlying-demand shape (D3 convention; trace total
+#     261.8258865 TWh measured from the pack) x annual_scale so the
+#     annual energy equals the pathway total 450.076 TWh (ED1 System
+#     Demand Total, fiscal-year label — the fiscal-vs-calendar wrinkle
+#     is carried from the data file, stated not fixed). FES demand
+#     INCLUDES grid-connected electrolysis (7.360 TWh) as FIRM load
+#     (exclusion e6: flexibility-overstatement flag — adequacy-ADVERSE
+#     bias) and network losses. No extra_demand_gw (station load is
+#     inside the all-in pathway total). NO electrification reprofiling
+#     (D9 heating / D10 EV overlays are not applied): understates the
+#     winter-evening peakiness of heat-pump/EV load —
+#     adequacy-FAVOURABLE bias, named on every unserved quote.
+#     Scaled-shape peak =~ 81.7 GW vs the published FES peak 82.042 GW
+#     (close at 2035; the peak is NOT separately imposed).
+#  2. WEATHER = the 2024 ERA5-derived CF traces (D1 pipeline,
+#     calibrated to observed 2024 energies — era5-cf-2024-report.md).
+#  3. INTERCONNECTION (20.6 GW published) is carried as the INERT
+#     [[links]] entry below and EXCLUDED from dispatch: the single-zone
+#     engine has no external zones, and assuming firm imports at
+#     nameplate is exactly the infinite-source convention the D11/D13
+#     record rejects (correlated continental scarcity). AUTARKY is the
+#     stated convention — adequacy-ADVERSE bias (unserved includes
+#     energy imports might have served); every unserved quote carries
+#     it. The link capex is likewise not costed (no cited future-link
+#     reference exists) — named cost-stack limitation.
+#  4. AVAILABILITY: flat 1.0 for all dispatchable plant (no outage
+#     model — overstates firm capacity, adequacy-FAVOURABLE, so any
+#     unserved finding is a fortiori), EXCEPT hydro, which carries the
+#     committed 2024 calibrated energy limitation (flat 0.2147 — a
+#     physical run-of-river constraint of the weather year, not an
+#     outage). The 2024 nuclear AGR monthly profile is deliberately NOT
+#     applied: it is a fleet-specific calibration, wrong-shaped for a
+#     new-build/SMR fleet (Q7 owns nuclear availability profiles).
+#  5. SRMC (pricing layer, post-dispatch) = 2024 fuel/carbon actuals
+#     (prices-2024.toml, D8 rule 1.2) for unabated ccgt/ocgt — a stated
+#     convention ("this fleet under 2024 weather AND 2024 prices");
+#     ccgt_ccs carries NO SRMC recipe (no cited CCS fuel chain exists):
+#     its fuel cost is a named cost-stack exclusion, not a priced line.
+#  6. FES FOLDS SPLIT (declared split rules, pinned): the data file's
+#     ccgt fold (20.0968 GW) is split into unabated ccgt 12.9138
+#     (CCGT 12.6878 + Gas CCGT CHP 0.2260) and ccgt_ccs 7.1830 (the e1
+#     exclusion magnitude); the biomass fold (5.415 GW) into unabated
+#     biomass 1.2450 (Biomass 1.1430 + CHP 0.1020) and beccs 4.1700
+#     (e2). Component magnitudes are the data file's own documented,
+#     FLX1-verified fold components — no new numbers invented.
+#  7. EXCLUDED WITH MAGNITUDE: marine (tidal) 1.6844 GW and geothermal
+#     CHP "other" 0.011 GW — no CF trace exists and treating cyclic
+#     tidal output as firm dispatchable capacity would be an invented
+#     pathway-favourable treatment. Adequacy-ADVERSE bias, small
+#     (~0.5% of fleet). Non-networked solar 0.0128 GW excluded (e4,
+#     never grid-connected). DSR/V2G not modelled (e5 ruling: no
+#     published power/energy pair).
+#  8. STORAGE: pathway GW/GWh as published; round-trip efficiencies are
+#     the committed 2024 reference conventions (battery 0.88;
+#     pumped_hydro fold 0.76 — the LDES fold PH+LAES+CAES carries the
+#     PH figure as a stated convention). Dispatch order pumped_hydro 1,
+#     battery 2 (reference precedent); initial SoC = FULL (D4 default).
+
+schema_version = 8   # v8: version line only (no heating resource_depth_m set; docs/03 migration)
+name = "fes2025-ee-2035"
+description = "FES 2025 Electric Engagement 2035 fleet under 2024 weather: single-zone GB, 2024 demand shape scaled to 450.076 TWh, autarkic (Stage 7 published-pathway pack)"
+
+[horizon]
+start = "2024-01-01T00:00:00Z"   # 17,568 half-hourly periods (leap year)
+end   = "2024-12-31T23:30:00Z"
+weather_years = [2024]
+
+[[zones]]
+id = "GB"
+
+[zones.demand]
+base_profile = "data/packs/2024/processed/demand_2024.parquet"
+column = "underlying_demand"     # D3 total-generation convention
+# 450.076 TWh / 261.8258865 TWh (measured 2024 trace total) — see
+# header convention 1.
+annual_scale = 1.718989692029554
+
+# --- Dispatchable fleet (pathways-published.toml, FES EE 2035; merit
+# --- order = grid_adequacy MERIT_ORDER, documented in dispatch.rs) ---
+
+[[zones.fleet]]
+technology = "nuclear"
+capacity_gw = 5.51               # Nuclear - Large 4.57 + Small 0.94
+
+[[zones.fleet]]
+technology = "biomass"
+capacity_gw = 1.245              # unabated: Biomass 1.1430 + CHP 0.1020 (fold split, convention 6)
+
+[[zones.fleet]]
+technology = "beccs"
+capacity_gw = 4.17               # CCS Biomass (e2 magnitude; fold split, convention 6)
+
+[[zones.fleet]]
+technology = "waste"
+capacity_gw = 3.7013             # Waste 2.9521 + Waste CHP 0.7492
+
+[[zones.fleet]]
+technology = "hydro"
+capacity_gw = 2.0105
+[zones.fleet.availability]
+flat = 0.2147                    # 2024 calibrated run-of-river energy limitation (convention 4)
+
+[[zones.fleet]]
+technology = "ccgt_ccs"
+capacity_gw = 7.183              # CCS Gas (e1 magnitude; fold split, convention 6); no SRMC (convention 5)
+
+[[zones.fleet]]
+technology = "ccgt"
+capacity_gw = 12.9138            # unabated: CCGT 12.6878 + Gas CCGT CHP 0.2260
+
+[[zones.fleet]]
+technology = "ocgt"
+capacity_gw = 7.0555             # OCGT 2.5616 + Gas Recips 3.4200 + Gas CHP 1.0739
+
+[[zones.fleet]]
+technology = "oil"
+capacity_gw = 0.2425             # Diesel 0.1025 + Fuel Oil 0.1400
+
+[[zones.fleet]]
+technology = "hydrogen_turbine"
+capacity_gw = 0.9958
+# e3 caveats travel: engine v1 has no hydrogen fuel-chain cost or
+# supply constraint — dispatches as unlimited-fuel firm plant
+# (pathway-favourable, named); last merit rung (dispatch.rs prose).
+
+# --- Weather-driven (must-take; 2024 ERA5 CF traces) ---
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 67.5195
+capacity_factor_trace = "data/packs/2024/processed/gb_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 38.5758
+capacity_factor_trace = "data/packs/2024/processed/gb_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 62.058             # grid-connected; non-networked 0.0128 GW excluded (e4)
+capacity_factor_trace = "data/packs/2024/processed/gb_solar_cf_2024.parquet"
+
+# EXCLUDED WITH MAGNITUDE (convention 7): marine (tidal) 1.6844 GW,
+# geothermal CHP 0.011 GW — no CF trace; firm treatment would be an
+# invented favourable convention.
+
+# --- Storage (convention 8) ---
+
+[[zones.storage]]
+kind = "pumped_hydro"
+power_gw = 8.5781                # LDES fold: PH 5.7999 + LAES 2.6549 + CAES 0.1233
+energy_gwh = 89.3982
+round_trip_efficiency = 0.76     # 2024 reference PH convention, applied to the fold (stated)
+dispatch_order = 1
+
+[[zones.storage]]
+kind = "battery"
+power_gw = 32.5973
+energy_gwh = 45.9488
+round_trip_efficiency = 0.88     # 2024 reference battery convention
+dispatch_order = 2
+
+# --- Interconnection: published 20.6 GW, INERT (convention 3 —
+# --- autarky; the single-zone engine does not consult links) ---
+
+[[links]]
+name = "aggregate-interconnection-inert"
+from = "GB"
+to = "EXT"
+capacity_gw = 20.6
+availability = 0.0               # inert by construction AND by value: autarky is the stated convention
+
+[dispatch]
+policy = "rule_based"
+
+# Pricing (post-dispatch layer; convention 5): 2024 actuals, unabated
+# gas only.
+[pricing]
+reference = "data/reference/prices-2024.toml"
+
+[pricing.fuel_price.gas]
+path = "data/packs/2024/processed/gas_sap_daily_2024.parquet"
+column = "sap_gbp_per_mwh_hhv"
+
+[pricing.srmc.ccgt]
+fuel = "gas"
+efficiency = "ccgt"
+
+[pricing.srmc.ocgt]
+fuel = "gas"
+efficiency = "ocgt"

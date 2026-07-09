@@ -1,0 +1,65 @@
+[workspace]
+resolver = "2"
+members = ["grid-core", "grid-adequacy", "grid-stability", "grid-cli"]
+# `grid-game/` is a SEPARATE project (the game engine, developed by a
+# different agent). It is excluded from this workspace on purpose: it must
+# never be compiled or linted by the engine's `cargo build/test/clippy
+# --workspace` gate, and it keeps its own Cargo.lock so the two projects
+# never contend over dependency resolution. See grid-game/README.md.
+exclude = ["grid-game"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/grid-modeller/grid-sim"
+
+# Dependencies are pinned here (docs/06); member crates inherit with
+# `workspace = true`. New entries require a one-line justification in the
+# PR/commit body.
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.9"
+thiserror = "2.0"
+# rayon: brute-force sweep parallelism (ADR-10; docs/06 pinned list) —
+# order-preserving par_iter keeps sweep results bit-identical to serial.
+rayon = "1.11"
+arrow-array = "56"
+arrow-schema = "56"
+# snap: the data-pack Parquet files are snappy-compressed (pandas default).
+parquet = { version = "56", features = ["arrow", "snap"], default-features = false }
+clap = { version = "4.5", features = ["derive"] }
+proptest = "1.7"
+# sha2: output artefacts embed scenario/run-inputs/data-file hashes and a
+# deterministic result digest (ADR-5, docs/06 metadata header).
+sha2 = "0.10"
+# plotters: PNG charts per docs/06 (ADR-11 phase-one deliverable).
+plotters = "0.3"
+# good_lp + HiGHS (ADR-10, docs/06 Stage-7 optimiser): the D12
+# perfect-foresight LP dispatch. `default-features = false` drops the CBC
+# backend; the vendored `highs` feature builds HiGHS from source (via
+# highs-sys/cmake) so the binary is self-contained — no system LP library.
+good_lp = { version = "=1.15.2", default-features = false, features = ["highs"] }
+# ureq: blocking HTTP for `grid-cli fetch-data` (docs/05 fetch-and-build);
+# no async runtime, rustls bundled — the minimal client for a CLI edge.
+ureq = "3.3"
+# csv: strict typed parsing of the NESO Historic Demand raw CSV.
+csv = "1.4"
+# serde_json: Elexon Insights API (FUELHH) raw JSON responses.
+serde_json = "1.0"
+# calamine: pure-Rust xlsx reader — the ONS gas SAP source is xlsx-only.
+calamine = "0.35"
+
+grid-core = { path = "grid-core" }
+grid-adequacy = { path = "grid-adequacy" }
+grid-stability = { path = "grid-stability" }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"

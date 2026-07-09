@@ -1,0 +1,561 @@
+# GB 2024 THREE-ZONE scenario — N-Scotland / S-Scotland / E+W (RGB) with
+# the intra-Scottish B4 boundary AND the Anglo-Scottish B6 boundary as
+# the two internal links. The culmination of the Scottish-group boundary
+# package: the two-zone gb-2024-2zone.toml sees only B6 and is a LOWER
+# BOUND; this file adds the tighter, more-often-binding UPSTREAM B4 gate
+# that throttles the ~7 GW northern wind pool, moving the dominant term
+# (B4 cost 4x B6 in 2024) from structurally invisible to modelled.
+#
+# THE PACKAGE: scoping docs/notes/scottish-group-boundary-scoping.md
+# (ADOPTED-WITH-EDITS), rulings docs/notes/scottish-group-boundary-
+# design-review.md (items 3/5/7), data docs/notes/three-zone-scottish-
+# data-report.md (+ its review). Schema v6 already supports 3 zones + 2
+# internal links; flow.rs is UNTOUCHED (capability was always its
+# parameter). No new engine concept.
+#
+# ===================================================================
+# THE SIX BINDING OBLIGATIONS (adjudication banner; carried verbatim)
+# ===================================================================
+#  (1) The N/S demand split and the CF sub-cluster partition are PINNED
+#      to their stated exogenous bases BEFORE any run and are NEVER
+#      retuned to reproduce the B4 DA series (15.78 TWh / 35.8% binding).
+#      B4 has NO annual-outturn cross-anchor, so tuning to it would be an
+#      unfalsifiable surface. The B4 net-flow miss (incl. the ~19%
+#      offshore-commissioning wedge) is a REPORTED wedge budget, not a
+#      knob.
+#  (2) The model may quote DIRECTION + PINNED TOTALS under stated
+#      conventions ONLY. NO "B4 effect proper" %, NO B4-vs-B6
+#      decomposition (the single-pass rule across two hub-sharing borders
+#      compounds the equal-depth artefact that inverted the B6 magnitude;
+#      the Stage-7 LP is the resolver). B4 is quotable for DIRECTION +
+#      BINDING FREQUENCY; its net magnitude carries "DA-only, no outturn
+#      anchor".
+#  (3) Cruachan (740 MW combined with Foyers) placed in N-Scotland by
+#      default (Y=728,674, ~18.7k north of the 710k line; SSEN-connected)
+#      — but PS placement feeds the headline storage finding, so an
+#      explicit N<->S Cruachan (440 MW) sensitivity is run in the engine
+#      package (acceptance_b4_robustness.rs).
+#  (4) Border-clearing order is stated below (S-Scotland is the hub;
+#      single-pass hub-staleness is bounded, never a clean decomposition).
+#  (5) The forth_tay offshore cluster STRADDLES B4 (within-cluster split,
+#      not a clean re-partition); the REPD-northing fleet split is
+#      reconciled with the CF cluster split (data report §3).
+#  (6) GB-internal and continental multizone stay SEPARATE scenario
+#      families in v1 (design-review item 7; ADR-7 amendment note).
+#
+# ===================================================================
+# PER-GATE DIRECTION SIGNS (data review, the anti-conservative failure
+# class B6 was corrected for — the per-gate signs are OPPOSITE)
+# ===================================================================
+#  - The adopted onshore split allocates CAPACITY by REPD-northing
+#    (0.4077 north) and TRACES by cluster. The within-Scotland energy
+#    deviation is onshore -1.70% (2024).
+#  - For the B6 EXIT gate (total Scottish energy) the negative sign is
+#    CONSERVATIVE (understates B6 export; lower bound preserved).
+#  - For the B4 gate it is ANTI-CONSERVATIVE: concentrating onshore
+#    capacity north (0.4077 vs cluster 0.311) raises northern generation
+#    per unit Scottish capacity, so the split OVERSTATES B4 binding. This
+#    does not breach the lower-bound duty because B4 magnitude is quoted
+#    only as a DA-anchored wedge; the headline is direction + pinned
+#    totals, never a "B4 effect proper".
+#
+# ===================================================================
+# B4 LINK — "DA-only, no outturn anchor" (design-review item 4)
+# ===================================================================
+# B4 (SSEN-T -> SPT; Tealing-Westfield 275 kV; ETYS planning 4.0 GW,
+# 2024 median observed DA limit 1.8 GW) is an INTERNAL Scottish flow with
+# only the stitched SSE-SP + SSE-SP2 DA series (data/packs/b6/processed/
+# b4_da_flows_limits.parquet, manifest data/packs/b4.sha256) — no annual-
+# outturn cross-anchor (unlike B6's 17 TWh Energy Trends anchor). B4 is
+# honest to quote for DIRECTION (southward) and BINDING FREQUENCY (35.8%
+# +/- band); its net flow (15.78 TWh) is a WEDGE BUDGET absorbing the
+# ~19% offshore-commissioning wedge (94% of Scottish offshore is north of
+# B4) plus the crude N/S demand split, tagged "DA-only, no outturn
+# cross-anchor". B4 carries ZERO >=9999 no-constraint sentinels (never
+# posted unconstrained), so upper_bound_gw = 4.0 GW never fires; 42
+# zero-limit periods + 288 missing + 3 NaN mask to the 1.8 GW fill.
+#
+# ===================================================================
+# BORDER-CLEARING ORDER (obligation 4; flow.rs rule 6, single pass)
+# ===================================================================
+# The physical cascade is N -> B4 -> S -> B6 -> E+W. The [[links]] list
+# below is B4 THEN B6, so each period B4 (N<->S) clears first and B6
+# (S<->E+W) clears against the post-B4 S-Scotland position — the faithful
+# cascade (what clears the upstream B4 wall then presents at the B6 exit).
+# Consequence (flow.rs rule 6): B4 is left marginally STALE when B6 later
+# moves the S-Scotland hub, bounded by the B6 capability. This staleness,
+# plus the equal-depth northward-shuffle artefact (RGB surplus can ship
+# north across B6 into S-Scotland and further north across B4 into
+# N-Scotland), is exactly why obligation (2) forbids a clean B4-vs-B6
+# decomposition: the model quotes DIRECTION + PINNED TOTALS only.
+#
+# ===================================================================
+# ZONE / FLEET SPLIT (data report §2; scoping §1 method)
+# ===================================================================
+# Method: REPD within-Scotland northing shares (N=710k B4 line) applied
+# to the VALIDATED gb-2024-2zone.toml SCO capacities, so the bands sum to
+# the committed SCO zone and GB is conserved; E+W (RGB) is the committed
+# 2-zone RGB fleet BYTE-UNCHANGED. Conventional plant placed by station.
+# Shares (data/packs/b6/processed/b4_fleet_split_3zone.csv):
+#   onshore N-share 0.4077; offshore 0.9393; solar 0.6941; battery
+#   0.4875; hydro 0.9494 = (448.6+118.1)/(462.6+134.3) (REPD large+small
+#   Scottish hydro north of B4). Peterhead CCGT (Aberdeenshire, N) ->
+#   N-Scotland; Torness nuclear (East Lothian, N~674k, S of B4) ->
+#   S-Scotland; Cruachan+Foyers PS -> N-Scotland (obligation 3). Biomass,
+#   OCGT and coal remain 0 in Scotland (committed 2-zone convention:
+#   Drax/Lynemouth/MGT, all English OCGT and Ratcliffe are E+W).
+#
+# ===================================================================
+# DEMAND (data report §4; obligation 1 — pinned pre-run, NOT tuned)
+# ===================================================================
+# Flat level-only split of Scotland's committed 10.1% GB share:
+# N-Scotland (SSEN area) = 33% of Scottish = 3.333% of GB; S-Scotland
+# (SP area) = 67% = 6.767%. Basis: SSEN-North serves 740k/2.74m = 27% of
+# Scottish customers (the one derived figure), uplifted to 33% for higher
+# northern per-customer consumption (off-gas-grid electric heating) — a
+# STATED JUDGMENT, not a derived number, pending the P114 _P/_N half-
+# hourly shape pin (v2). Tolerable because N-Scotland is heavily export-
+# dependent (mean demand ~1 GW vs ~7 GW northern wind swings), so a few-%
+# GB demand error is second-order for the B4 flow (design-review 3b).
+#
+# ===================================================================
+# EXTERNAL INTERCONNECTORS (v1 convention; obligation 6)
+# ===================================================================
+# GB-only three-zone scenario: external links are EXOGENOUS observed 2024
+# net-import traces, attached per zone by landing point. Moyle lands at
+# Auchencrosh 275 kV (Ayrshire, SPT, south of B4) -> S-Scotland gets the
+# FUELHH intirl column; every other built link lands in England/Wales ->
+# E+W (RGB) gets the other nine columns. N-Scotland has NO external link.
+# GB-internal and continental multizone are SEPARATE scenario families in
+# v1 (the 5-zone scenario MODELS the import response; this file does not).
+#
+# NATIONAL EXOGENOUS SERIES split by schema-v6 `scale`:
+#   pumped_storage_net: all Scottish PS is north of B4, so N-Scotland gets
+#     the PS power share 0.2617 (740/2828 MW); S-Scotland gets none; E+W
+#     0.7383. other (FUELHH): by demand share (0.03333 / 0.06767 / 0.899).
+#
+# ZONAL CF TRACES: data/packs/cf-gb2/{nsco,ssco,rgb}_* (manifests
+# cf-gb3-1985-2024.sha256 for nsco/ssco; cf-gb2 for rgb). nsco/ssco split
+# the committed `sco` zone (reconstruction identity max residual 2.4e-07
+# over 40y — the split loses no information); E+W CF = committed `rgb`
+# traces byte-unchanged. 2024 sub-zone mean CFs: onshore nsco 0.249 /
+# ssco 0.303; offshore nsco 0.354 / ssco 0.358; solar nsco = ssco 0.078.
+#
+# ATTRIBUTION: "Supported by National Energy SO Open Data" (NESO DA
+# flows/limits B4/B6, interconnector register); DESNZ Regional Renewable
+# Statistics / Energy Trends / REPD (OGL v3.0); "Contains modified
+# Copernicus Climate Change Service information [2024]" (ERA5 traces).
+#
+# ===================================================================
+# PRICING (added 2026-07-07, sweep-zonal package — CLI exposure of the
+# priced multi-zone wind sweep; docs/notes/wind-capacity-zonal-work-
+# order.md). Every zone carries a schema-v7 [zones.pricing] block (the
+# priced-ladder gate requires one on EVERY zone; the zonal sweep prices
+# the swept zone's SRMC chain). Recipes are the gb-2024-reference.toml
+# [pricing] conventions, named not transcribed — one source, no drift.
+# Gas SRMC only where there is gas plant: Peterhead CCGT (NSCO) and the
+# E+W CCGT+OCGT fleet (RGB). SSCO has NO gas, so its block names no
+# SRMC recipe and it prices at the GBP 0 must-take floor by design —
+# that IS the locational cannibalisation signal, not an error.
+# dispatch.flow_signal stays at the DEFAULT "scarcity": dispatch (and
+# every pinned digest) is byte-identical to the pre-pricing file.
+# ===================================================================
+#
+# Everything not stated here is byte-carried from gb-2024-2zone.toml /
+# gb-2024-reference.toml and cited there.
+
+schema_version = 8   # v8: version line only (no heating resource_depth_m set; docs/03 migration)
+name = "GB-2024-3zone"
+description = "GB 2024 split N-Scotland / S-Scotland / E+W with the B4 (intra-Scottish) and B6 (Anglo-Scottish) boundaries as the two internal links — the three-zone Scottish-group validation scenario"
+
+[horizon]
+start = "2024-01-01T00:00:00Z"   # UTC, half-hourly periods (17,568; leap year)
+end   = "2024-12-31T23:30:00Z"
+weather_years = [2024]
+
+# =====================================================================
+# N-SCO — North Scotland (SSEN area, north of B4). ~7 GW wind behind the
+# ~1.8 GW B4 wall; tiny demand -> near-permanent exporter south via B4.
+# =====================================================================
+
+[[zones]]
+id = "NSCO"
+
+[zones.demand]
+base_profile = "data/packs/2024/processed/demand_2024.parquet"
+column = "underlying_demand"
+annual_scale = 0.03333           # 33% of Scotland's 10.1% GB share (header)
+extra_demand_gw = 0.022231       # station transformer, 0.33 x SCO 0.067367
+
+[[zones.exogenous_supply]]
+label = "pumped_storage_net"
+# All Scottish PS is north of B4: N-Scotland takes the full Scottish PS
+# power share 0.2617 (740/2828 MW). S-Scotland gets none.
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = ["ps"]
+scale = 0.2617
+reliability = "excluded"
+
+[[zones.exogenous_supply]]
+label = "other"
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = ["other"]
+scale = 0.03333                  # N-Scotland demand share
+reliability = "firm"
+
+# --- Pricing (header PRICING banner; gb-2024-reference.toml recipes) ---
+
+[zones.pricing]
+reference = "data/reference/prices-2024.toml"   # committed per-number-cited reference (Stage 2); carbon absent -> UKA+CPS step series (GB basis)
+
+[zones.pricing.fuel_price.gas]
+# Daily gas System Average Price (ONS, OGL), upsampled to half-hourly in
+# the pack build; GBP/MWh-thermal, gross CV (HHV) — the only openly
+# licensed GB hub gas price (gb-2024-reference.toml [pricing] citation).
+path = "data/packs/2024/processed/gas_sap_daily_2024.parquet"
+column = "sap_gbp_per_mwh_hhv"
+
+[zones.pricing.srmc.ccgt]
+fuel = "gas"
+efficiency = "ccgt"              # DUKES 5.10.C fleet average, 0.4893 HHV (prices-2024.toml)
+
+# --- Dispatchable ---
+
+[[zones.fleet]]
+technology = "ccgt"
+capacity_gw = 1.18               # Peterhead 1,180 MW (Aberdeenshire, N of B4)
+
+[[zones.fleet]]
+technology = "hydro"
+capacity_gw = 1.602008           # 0.9494 x SCO 1.68739 (REPD large+small N-share)
+[zones.fleet.availability]
+flat = 0.2147
+
+# --- Weather-driven (nsco cf-gb3 sub-traces) ---
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 4.107855           # 0.4077 x SCO 10.07568
+capacity_factor_trace = "data/packs/cf-gb2/nsco_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 2.887883           # 0.9393 x SCO 3.074505 (94% of Scottish offshore)
+capacity_factor_trace = "data/packs/cf-gb2/nsco_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 0.34705            # 0.6941 x SCO 0.5 (immaterial)
+capacity_factor_trace = "data/packs/cf-gb2/nsco_solar_cf_2024.parquet"
+
+# --- Storage (all Scottish PS is north of B4; Cruachan default N) ---
+#
+# DOUBLE-COUNT WARNING (audits 2026-07-04/05): GB's pumped storage appears
+# TWICE below the surface — once as the exogenous `pumped_storage_net`
+# traces (the observed 2024 output, split 0.2617 NSCO / 0.7383 RGB) and
+# once as the dispatchable `pumped_hydro` stores (Cruachan+Foyers 740 MW
+# here in NSCO; Dinorwig+Ffestiniog 2,088 MW in RGB). This is HARMLESS
+# under the rule-based engine (it leaves both stores INERT — zero cycling,
+# SoC held full all year — which is why this scenario stays the pinned
+# rule-based reference and the Cruachan N/S sensitivity relies on the NSCO
+# store). But a perfect-foresight LP (e.g. run_multi_lp_min_curtailment)
+# WAKES the stores, so the same physical assets would act twice and
+# INFLATE the B4 binding frequency (measured: 31.75% with NSCO
+# double-counted vs 28.16% fully de-duplicated). Any LP use of this
+# scenario MUST drop the pumped_hydro store from EVERY zone first — see
+# grid-adequacy/tests/acceptance_b4_lp.rs.
+
+[[zones.storage]]
+kind = "pumped_hydro"
+power_gw = 0.74                  # Cruachan 440 + Foyers 300 MW (both N; obligation 3)
+energy_gwh = 13.4                # 7.1 + 6.3 GWh
+round_trip_efficiency = 0.76
+dispatch_order = 1
+
+[[zones.storage]]
+kind = "battery"
+power_gw = 0.333377              # 0.4875 x SCO 0.68385
+energy_gwh = 0.468146            # 0.4875 x SCO 0.9603
+round_trip_efficiency = 0.88
+dispatch_order = 2
+
+# =====================================================================
+# S-SCO — South Scotland (SP Transmission area, between B4 and B6).
+# Southern wind + Torness; B5 (3.9 GW, Denny-Lambhill) folded into this
+# copper-plate -> UNDER-states constraint -> the three-zone result
+# REMAINS a LOWER BOUND (design-review item 1 failure-mode A).
+# =====================================================================
+
+[[zones]]
+id = "SSCO"
+
+[zones.demand]
+base_profile = "data/packs/2024/processed/demand_2024.parquet"
+column = "underlying_demand"
+annual_scale = 0.06767           # 67% of Scotland's 10.1% GB share
+extra_demand_gw = 0.045136       # 0.67 x SCO 0.067367
+
+[[zones.exogenous_supply]]
+label = "net_imports"
+# Moyle ONLY — lands at Auchencrosh (Ayrshire, SPT, south of B4) ->
+# S-Scotland (design-review item 7). N-Scotland has no external link.
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = ["intirl"]
+imports = true
+reliability = "variable"
+
+[[zones.exogenous_supply]]
+label = "other"
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = ["other"]
+scale = 0.06767                  # S-Scotland demand share
+reliability = "firm"
+
+# --- Pricing (header PRICING banner) ---
+#
+# S-Scotland has NO gas plant (Peterhead is north of B4; all other
+# CCGT/OCGT is E+W — committed 2-zone convention), so this block names
+# NO SRMC recipe: schema v7, technologies not listed price at the GBP 0
+# must-take floor. SSCO's SMP is therefore GBP 0 in every non-unserved
+# period BY DESIGN — that IS the cannibalisation signal, not an error.
+# The block itself is still required (priced-ladder gate: [zones.pricing]
+# on EVERY zone; grid-core scenario validation, schema v7 D11).
+
+[zones.pricing]
+reference = "data/reference/prices-2024.toml"   # named for the committed GB convention; carbon series unused (no SRMC recipe)
+
+# --- Dispatchable ---
+
+[[zones.fleet]]
+technology = "nuclear"
+capacity_gw = 1.19               # Torness (East Lothian, N~674k, S of B4)
+[zones.fleet.availability]
+monthly = [
+  0.5569, 0.6379, 0.6408, 0.8721, 0.8245, 0.7963,
+  0.7736, 0.8839, 0.7991, 0.6869, 0.7114, 0.6935,
+]
+
+[[zones.fleet]]
+technology = "hydro"
+capacity_gw = 0.085382           # SCO 1.68739 - N 1.602008
+[zones.fleet.availability]
+flat = 0.2147
+
+# --- Weather-driven (ssco cf-gb3 sub-traces) ---
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 5.967825           # SCO 10.07568 - N 4.107855
+capacity_factor_trace = "data/packs/cf-gb2/ssco_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 0.186622           # SCO 3.074505 - N 2.887883 (Levenmouth; Robin Rigg is CF->rgb)
+capacity_factor_trace = "data/packs/cf-gb2/ssco_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 0.15295            # SCO 0.5 - N 0.34705
+capacity_factor_trace = "data/packs/cf-gb2/ssco_solar_cf_2024.parquet"
+
+# --- Storage (no PS — Cruachan default N; battery only) ---
+
+[[zones.storage]]
+kind = "battery"
+power_gw = 0.350473              # 0.5125 x SCO 0.68385
+energy_gwh = 0.492154            # 0.5125 x SCO 0.9603
+round_trip_efficiency = 0.88
+dispatch_order = 1
+
+# =====================================================================
+# RGB — E+W (England + Wales): the committed gb-2024-2zone.toml RGB fleet,
+# demand and exogenous supply BYTE-UNCHANGED (GB conservation: E+W = the
+# validated 2-zone RGB). Only its link source changed (B6 now from S-SCO).
+# =====================================================================
+
+[[zones]]
+id = "RGB"
+
+[zones.demand]
+base_profile = "data/packs/2024/processed/demand_2024.parquet"
+column = "underlying_demand"
+annual_scale = 0.899
+extra_demand_gw = 0.599633       # 0.899 x 0.667
+
+[[zones.exogenous_supply]]
+label = "net_imports"
+# All external links landing in England/Wales (2-zone convention):
+# IFA, IFA2, ElecLink, BritNed, Nemo, NSL (Blyth), Viking, EWIC, Greenlink.
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = [
+  "intelec", "intew", "intfr", "intgrnl", "intifa2",
+  "intned", "intnem", "intnsl", "intvkl",
+]
+imports = true
+reliability = "variable"
+
+[[zones.exogenous_supply]]
+label = "pumped_storage_net"
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = ["ps"]
+scale = 0.7383
+reliability = "excluded"
+
+[[zones.exogenous_supply]]
+label = "other"
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = ["other"]
+scale = 0.899
+reliability = "firm"
+
+# --- Pricing (header PRICING banner; gb-2024-reference.toml recipes) ---
+
+[zones.pricing]
+reference = "data/reference/prices-2024.toml"   # committed per-number-cited reference (Stage 2); carbon absent -> UKA+CPS step series (GB basis)
+
+[zones.pricing.fuel_price.gas]
+# Daily gas System Average Price (ONS, OGL), upsampled to half-hourly in
+# the pack build; GBP/MWh-thermal, gross CV (HHV) — the only openly
+# licensed GB hub gas price (gb-2024-reference.toml [pricing] citation).
+path = "data/packs/2024/processed/gas_sap_daily_2024.parquet"
+column = "sap_gbp_per_mwh_hhv"
+
+[zones.pricing.srmc.ccgt]
+fuel = "gas"
+efficiency = "ccgt"              # DUKES 5.10.C fleet average, 0.4893 HHV (prices-2024.toml)
+
+[zones.pricing.srmc.ocgt]
+fuel = "gas"
+efficiency = "ocgt"              # DESNZ/GHD 2025 new-plant value, 0.349 HHV (prices-2024.toml)
+
+# --- Dispatchable ---
+
+[[zones.fleet]]
+technology = "ccgt"
+capacity_gw = 28.82              # 30.0 - Peterhead 1.18
+
+[[zones.fleet]]
+technology = "ocgt"
+capacity_gw = 1.0                # all England/Wales
+
+[[zones.fleet]]
+technology = "nuclear"
+capacity_gw = 4.71               # Heysham 1+2, Hartlepool, Sizewell B
+[zones.fleet.availability]
+monthly = [
+  0.5569, 0.6379, 0.6408, 0.8721, 0.8245, 0.7963,
+  0.7736, 0.8839, 0.7991, 0.6869, 0.7114, 0.6935,
+]
+
+[[zones.fleet]]
+technology = "biomass"
+capacity_gw = 3.5                # Drax/Lynemouth/MGT — all England
+[zones.fleet.availability]
+flat = 0.6116
+
+[[zones.fleet]]
+technology = "coal"
+capacity_gw = 2.0                # Ratcliffe-on-Soar (England), closed 2024-09-30
+[zones.fleet.availability]
+monthly = [
+  0.11929, 0.11929, 0.11929, 0.11929, 0.11929, 0.11929,
+  0.11929, 0.11929, 0.11929, 0.0, 0.0, 0.0,
+]
+
+[[zones.fleet]]
+technology = "hydro"
+capacity_gw = 0.21261            # 1.9 - SCO 1.68739
+[zones.fleet.availability]
+flat = 0.2147
+
+# --- Weather-driven ---
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 4.32432            # 14.4 - SCO 10.07568
+capacity_factor_trace = "data/packs/cf-gb2/rgb_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 11.625495          # 14.7 - SCO 3.074505
+capacity_factor_trace = "data/packs/cf-gb2/rgb_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 18.2               # 18.7 - SCO 0.5
+capacity_factor_trace = "data/packs/cf-gb2/rgb_solar_cf_2024.parquet"
+
+# --- Storage (DOUBLE-COUNT WARNING: the Dinorwig+Ffestiniog store below
+# also rides the exogenous pumped_storage_net trace above, scale 0.7383 —
+# same defect class as NSCO; see the NSCO storage block. Inert under
+# rule-based; any LP use must drop the pumped_hydro store) ---
+
+[[zones.storage]]
+kind = "pumped_hydro"
+power_gw = 2.088                 # Dinorwig 1,728 + Ffestiniog 360 MW (Wales)
+energy_gwh = 10.5                # 9.1 + 1.4 GWh
+round_trip_efficiency = 0.76
+dispatch_order = 1
+
+[[zones.storage]]
+kind = "battery"
+power_gw = 4.01615               # 4.7 - SCO 0.68385
+energy_gwh = 5.6397              # 6.6 - SCO 0.9603
+round_trip_efficiency = 0.88
+dispatch_order = 2
+
+# =====================================================================
+# B4 — the intra-Scottish (N-Scotland -> S-Scotland) link. Forward
+# capability = observed 2024 DA limit series (SSE-SP + SSE-SP2 stitched);
+# 42 zero-limit + 288 missing + 3 NaN periods mask to the 1.8 GW fill;
+# ZERO >=9999 no-constraint sentinels so upper_bound_gw = 4.0 never fires.
+# reverse (S->N) = 4.0 GW: no B4 import series is published, so the ETYS
+# planning capability is applied symmetrically (a STATED assumption; N is
+# the near-permanent exporter, so reverse is barely load-bearing).
+# "DA-only, no outturn anchor" — quote DIRECTION + binding frequency;
+# net magnitude is a wedge budget.
+# =====================================================================
+
+[[links]]
+name = "B4"
+from = "NSCO"
+to = "SSCO"
+capacity_gw = 1.8                # forward central (2024 median observed DA limit)
+reverse_capacity_gw = 4.0        # ETYS planning applied symmetrically (no import series)
+availability = 1.0
+loss = 0.0
+
+[links.capability_trace]
+path = "data/packs/b6/processed/b4_da_flows_limits.parquet"
+column = "limit_mw"
+sentinel_high_mw = 9999.0        # never fires (0 no-constraint sentinels in B4)
+upper_bound_gw = 4.0             # ETYS planning capability (unused; header)
+masked_fill_gw = 1.8             # 2024 median observed; fills 42 zero + 288 missing + 3 NaN
+
+# =====================================================================
+# B6 — the Anglo-Scottish (S-Scotland -> E+W) link. UNCHANGED from
+# gb-2024-2zone.toml except its source zone (SCO -> S-SCO): observed 2024
+# DA limit series, sentinel >=9999 -> ETYS 6.7 GW, 0 -> masked, missing
+# masked; import (RGB->S-SCO) 3.5 GW flat (HARETORIM 2021-22 median).
+# The 17 TWh Energy Trends outturn anchors this B6 EXIT (all Scottish
+# export exits via B6), carrying the ~2 TWh DA-vs-outturn wedge.
+# =====================================================================
+
+[[links]]
+name = "B6"
+from = "SSCO"
+to = "RGB"
+capacity_gw = 4.1                # forward central (2024 median observed DA limit)
+reverse_capacity_gw = 3.5        # import (RGB->S-SCO): HARETORIM 2021-22 median
+availability = 1.0
+loss = 0.0
+
+[links.capability_trace]
+path = "data/packs/b6/processed/b6_da_flows_limits.parquet"
+column = "limit_mw"
+sentinel_high_mw = 9999.0        # NESO "no constraint recorded" sentinel (116 periods 2024)
+upper_bound_gw = 6.7             # ETYS planning capability
+masked_fill_gw = 4.1             # 2024 median observed; fills zero + missing + NaN periods
+
+[dispatch]
+policy = "rule_based"

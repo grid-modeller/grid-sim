@@ -1,0 +1,220 @@
+# FROZEN v1 TEST FIXTURE (schema_version 1, superseded 2026-07-02 by schema v2).
+# Kept verbatim so the v1->v2 migration error path stays tested (docs/05 rule 4).
+# The live, self-contained v2 scenario is scenarios/gb-2024-reference.toml.
+
+# GB 2024 fleet reference scenario — validation pack companion.
+#
+# PROVISIONAL: written 2026-07-02, before the Stage 0 parser exists. Field
+# names follow the sketch in docs/03-domain-model.md as closely as the doc
+# allows. Ambiguities in that sketch, NOT resolved silently here:
+#   1. The doc gives no field for a technology's availability model in TOML
+#      (the Rust type has one); none is written here.
+#   2. The doc gives no interconnector counterparty field beyond the `to`
+#      zone id, and no way to declare externally-modelled zones; the `to`
+#      ids below (FR, NL, BE, NO, DK, SEM) are zone ids without [[zones]]
+#      entries — Stage 1 treats links as an exogenous trace anyway.
+#   3. `base_profile` implies a single-column trace; demand_2024.parquet is
+#      multi-column. Intended column: `underlying_demand` (= ND + NESO
+#      embedded wind/solar estimates; D3 total-generation convention).
+#   4. capacity_factor_trace paths point at the ERA5-derived traces built
+#      by scripts/era5-cf/ (D1 pipeline, Phase A: 2024): single column
+#      `cf` in [0,1], calibrated to observed 2024 annual energy (method,
+#      constants and calibration factors: docs/notes/era5-cf-2024-report.md).
+#      Like the rest of the pack they are fetched-and-built, not committed
+#      (checksums: data/packs/2024.sha256). The provisional OBSERVED
+#      all-wind trace (wind_cf_2024.parquet) remains for Stage 0
+#      trace-loading tests only.
+#   5. No field exists for mid-year capacity change (coal closure, Greenlink
+#      go-live); noted inline where it bites.
+#
+# D3 RESOLVED (docs/notes/d3-embedded-convention.md): the total-generation
+# convention. Demand is underlying demand (ND grossed up by the NESO
+# embedded estimates — the `underlying_demand` column of the demand trace,
+# 261.83 TWh in 2024) and the fleet below correctly includes embedded
+# capacity (18.7 GW solar, the embedded share of onshore wind). Validation
+# targets are stated in the same convention: total wind 82.61 TWh, solar
+# 13.95 TWh, gas 72.79 TWh. The ERA5 CF traces (D1, Phase A) are built by
+# scripts/era5-cf/ and wired in below.
+#
+# Every capacity below is cited. "FUELHH max" = observed 2024 maximum
+# half-hourly output in the Elexon FUELHH data of this pack — a lower bound
+# on transmission-connected capacity, quoted as a cross-check.
+
+schema_version = 1
+name = "GB-2024-reference"
+description = "Actual GB fleet, calendar year 2024, for Stage 1/2 validation against the 2024 data pack"
+
+[horizon]
+start = "2024-01-01T00:00:00Z"   # UTC, half-hourly periods (17,568; leap year)
+end   = "2024-12-31T23:30:00Z"
+weather_years = [2024]
+
+[[zones]]
+id = "GB"
+
+[zones.demand]
+base_profile = "data/packs/2024/processed/demand_2024.parquet"  # column: underlying_demand (D3)
+annual_scale = 1.0
+
+[zones.demand.heating]
+enabled = false
+
+# --- Thermal / dispatchable ---
+
+[[zones.fleet]]
+technology = "ccgt"
+capacity_gw = 30.0
+# UK gas capacity end-2024: 35.0 GW total incl. OCGT/engines/CHP (World
+# Nuclear Association UK profile, citing DUKES-series data). CCGT share
+# ~30 GW (DUKES 5.11 class). FUELHH max 27.3 GW.
+
+[[zones.fleet]]
+technology = "ocgt"
+capacity_gw = 1.0
+# Remainder of the ~35 GW gas fleet visible to the BM as OCGT; FUELHH max
+# 0.78 GW. (Small gas engines/CHP are largely embedded, not modelled.)
+
+[[zones.fleet]]
+technology = "nuclear"
+capacity_gw = 5.9
+# End-2024, 9 AGR reactors + Sizewell B (World Nuclear Association UK
+# profile / DUKES). FUELHH max 5.68 GW.
+
+[[zones.fleet]]
+technology = "biomass"
+capacity_gw = 3.5
+# Transmission-connected biomass: Drax 2.6 + Lynemouth 0.42 + MGT Teesside
+# 0.30 + minor units. FUELHH max 3.33 GW. (DUKES "biofuels & waste" is
+# 7.4 GW UK-wide but includes embedded waste/landfill/AD not visible here.)
+
+[[zones.fleet]]
+technology = "coal"
+capacity_gw = 2.0
+# Ratcliffe-on-Soar, GB's last coal station, ran until 2024-09-30
+# (1.57 TWh generated Jan-Sep, FUELHH). Schema v1 has no field for a
+# mid-year closure (ambiguity 5 in the header) -- a 2024 validation run
+# must either window this capacity externally or accept the mismatch.
+
+[[zones.fleet]]
+technology = "hydro"
+capacity_gw = 1.9
+# UK hydro 4.8 GW minus 2.9 GW pumped storage (World Nuclear Association /
+# DUKES). FUELHH NPSHYD max 1.16 GW — much run-of-river hydro is embedded.
+
+# --- Weather-driven (must-take) ---
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 14.7
+# RenewableUK UKWED, operational end-2024 (all GB). FUELHH wind max
+# (on+offshore, transmission only) 17.3 GW.
+capacity_factor_trace = "data/packs/2024/processed/gb_offshore_cf_2024.parquet"  # ERA5-derived (scripts/era5-cf, D1 Phase A)
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 14.4
+# RenewableUK UKWED: UK onshore 15.7 GW end-2024, minus ~1.3 GW in
+# Northern Ireland (outside GB). Of this, 6.6 GW is embedded (NESO
+# EMBEDDED_WIND_CAPACITY, end-2024 value in this pack's demand trace).
+capacity_factor_trace = "data/packs/2024/processed/gb_onshore_cf_2024.parquet"  # ERA5-derived (scripts/era5-cf, D1 Phase A)
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 18.7
+# NESO EMBEDDED_SOLAR_CAPACITY end-2024 (this pack's demand trace);
+# World Nuclear Association/DUKES quotes 18.3 GW UK. Effectively all GB
+# solar is distribution-connected: FUELHH has NO solar category.
+capacity_factor_trace = "data/packs/2024/processed/gb_solar_cf_2024.parquet"  # ERA5-derived (scripts/era5-cf, D1 Phase A)
+
+# --- Storage ---
+
+[[zones.storage]]
+kind = "pumped_hydro"
+power_gw = 2.8
+energy_gwh = 24.0
+# Dinorwig 1.73 GW/9.1 GWh, Cruachan 0.44/7.1, Foyers 0.30/6.3,
+# Ffestiniog 0.36/1.4 (station data; DUKES quotes 2.9 GW incl. small sites).
+round_trip_efficiency = 0.76
+# Evidence-based: observed 2024 FUELHH gross PS generation 1.88 TWh /
+# gross pumping 2.48 TWh = 0.758 implied round trip.
+dispatch_order = 1
+
+[[zones.storage]]
+kind = "battery"
+power_gw = 4.7
+energy_gwh = 6.6
+# Modo Energy GB buildout report, operational grid-scale fleet end-2024
+# (avg duration 1.4 h). Batteries are BM/embedded mix; not in FUELHH.
+round_trip_efficiency = 0.88
+# Assumed typical Li-ion round trip (matches docs/03 sketch); not derivable
+# from this pack.
+dispatch_order = 2
+
+# --- Interconnectors (nameplate GW; + counterparty zone) ---
+# Observed 2024 max flows in FUELHH given as cross-checks.
+
+[[links]]                       # IFA — observed max import 2.63 GW*
+from = "GB"
+to = "FR"
+capacity_gw = 2.0
+availability = 0.95
+# *observed 2.63 GW exceeds nameplate briefly — Elexon metering artefact,
+# single periods only.
+
+[[links]]                       # IFA2 — observed max 1.18 GW
+from = "GB"
+to = "FR"
+capacity_gw = 1.0
+availability = 0.95
+
+[[links]]                       # ElecLink — observed max 1.26 GW
+from = "GB"
+to = "FR"
+capacity_gw = 1.0
+availability = 0.95
+
+[[links]]                       # BritNed — observed max 1.10 GW
+from = "GB"
+to = "NL"
+capacity_gw = 1.0
+availability = 0.95
+
+[[links]]                       # Nemo — observed max 1.37 GW
+from = "GB"
+to = "BE"
+capacity_gw = 1.0
+availability = 0.95
+
+[[links]]                       # NSL — observed max 1.47 GW
+from = "GB"
+to = "NO"
+capacity_gw = 1.4
+availability = 0.95
+
+[[links]]                       # Viking — observed max 1.44 GW
+from = "GB"
+to = "DK"
+capacity_gw = 1.4
+availability = 0.95
+
+[[links]]                       # Moyle — observed max 0.40 GW import
+from = "GB"
+to = "SEM"
+capacity_gw = 0.5
+availability = 0.95
+
+[[links]]                       # EWIC — observed max 0.50 GW
+from = "GB"
+to = "SEM"
+capacity_gw = 0.5
+availability = 0.95
+
+[[links]]                       # Greenlink — commissioning during 2024;
+from = "GB"                     # negligible 2024 flow (|max| 0.05 GW),
+to = "SEM"                      # commercial operation Jan 2025.
+capacity_gw = 0.5
+availability = 0.0
+# availability 0 for the 2024 validation year; set 0.95 from 2025.
+
+[dispatch]
+policy = "rule_based"

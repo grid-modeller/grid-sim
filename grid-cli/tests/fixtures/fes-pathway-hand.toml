@@ -1,0 +1,88 @@
+# Hand-checkable fleet-pathway fixture (Stage 6 part 2 CLI tests).
+#
+# Deliberately written in the data engineer's pinned fes-pathway-v1
+# shape with NO [assumptions] block, so the CLI exercises the cited,
+# flagged 2019-era defaults (grid_stability::pathway module docs §1–§2).
+# The real FES pathway lands at data/reference/fes-pathway.toml.
+#
+# Shape of the story: the synchronous fleet shrinks 2028 → 2032 and is
+# gone by 2036 (wind + solar + battery + hydrogen only — the zero-
+# inertia FINDING year, RS-lean precedent).
+
+schema = "fes-pathway-v1"
+name = "hand pathway (CLI fixture)"
+fes_edition = "hand-2026"
+
+[[years]]
+year = 2028
+demand_twh = 280.0
+
+[[years.fleet]]
+technology = "ccgt"
+capacity_gw = 25.0
+
+[[years.fleet]]
+technology = "nuclear"
+capacity_gw = 5.9
+
+[[years.fleet]]
+technology = "offshore_wind"
+capacity_gw = 30.0
+
+[[years.storage]]
+kind = "pumped_hydro"
+power_gw = 2.8
+energy_gwh = 17.0
+
+[[years.storage]]
+kind = "battery"
+power_gw = 10.0
+energy_gwh = 20.0
+
+[[years]]
+year = 2032
+demand_twh = 320.0
+
+[[years.fleet]]
+technology = "ccgt"
+capacity_gw = 12.0
+
+[[years.fleet]]
+technology = "nuclear"
+capacity_gw = 3.2
+
+[[years.fleet]]
+technology = "offshore_wind"
+capacity_gw = 60.0
+
+[[years.storage]]
+kind = "pumped_hydro"
+power_gw = 2.8
+energy_gwh = 17.0
+
+[[years.storage]]
+kind = "battery"
+power_gw = 20.0
+energy_gwh = 45.0
+
+[[years]]
+year = 2036
+demand_twh = 360.0
+
+[[years.fleet]]
+technology = "offshore_wind"
+capacity_gw = 90.0
+
+[[years.fleet]]
+technology = "solar"
+capacity_gw = 50.0
+
+[[years.storage]]
+kind = "battery"
+power_gw = 30.0
+energy_gwh = 70.0
+
+[[years.storage]]
+kind = "hydrogen"
+power_gw = 20.0
+energy_gwh = 10000.0

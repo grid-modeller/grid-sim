@@ -1,0 +1,604 @@
+# ============================================================================
+# Stage 7 published-pathway reference (data engineer, 2026-07-06) — DRAFT
+# until reviewed and pinned. The cited capacity/demand tables needed to
+# express two published GB decarbonisation pathways as simulator scenarios
+# (docs/04 Stage 7: "scenario pack for published pathways (FES, CCC,
+# Royal Society)"; the Royal Society leg is already committed as
+# scenarios/royal-society-37y*.toml). Evidence note:
+# docs/notes/stage7-pathways-data-report.md.
+#
+# NO PARSER EXISTS YET for this schema — the scenario package (next) writes
+# it and registers the schema in docs/03 per the costs-reference-v1
+# precedent. Field shapes for fleet/storage entries deliberately match
+# fes-pathway-v1 (technology/capacity_gw; kind/power_gw/energy_gwh) so the
+# scenario package can reuse those conventions mechanically.
+#
+# CONVENTIONS
+# - Units: GW, GWh, TWh throughout (converted from source MW/GWh at a
+#   single point; rounding at output only: GW/GWh 4 dp, TWh 3 dp — the
+#   fes-pathway.toml convention). CCC values are carried at the source's
+#   own published precision (some are rounded integers; each is marked).
+# - Snapshot years: 2035 and 2050, as ordered. FES cross-check years
+#   (2030/2040) appear only in comments.
+# - fleet entries carry ONLY unambiguous mappings to engine technology
+#   ids. Anything requiring a split or modelling decision is carried under
+#   [[...aggregates]] with mappable = false — those rows MUST NOT be
+#   consumed by a scenario builder without a declared, reviewed split rule.
+# - Every number carries its citation (file, sheet/table, row) in a
+#   comment. Raw source files are NOT committed (fetch-and-build law);
+#   sha256 manifests: data/packs/fes2025.sha256, data/packs/cb7.sha256.
+#
+# LICENCES (verdicts and exact clause references in the evidence note §2)
+# - FES 2025: NESO Open Data Licence — copy/publish/distribute/adapt/
+#   commercially exploit, with attribution "Supported by National Energy
+#   SO Open Data"; NESO states CC BY 4.0 compatibility. Re-verified
+#   2026-07-06. Redistribution of this derived table is permitted.
+# - CCC CB7: theccc.org.uk copyright page: "The material on this website
+#   is licensed under the Open Government Licence v3.0 except where
+#   otherwise stated" (re-verified 2026-07-06); the dataset workbooks
+#   carry no overriding statement; the report PDF carries CCC's own
+#   permissive notice (printed p.3: reproduce free of charge, accurately, acknowledge
+#   "Climate Change Committee copyright" + document title).
+#   Redistribution of these derived numbers with attribution is permitted.
+#   NOTE: this SUPERSEDES the stage7-cost-inputs-report §10.4 finding
+#   ("no explicit open licence found") — the copyright-terms page states
+#   OGL v3.0.
+# ============================================================================
+
+schema = "pathways-published-v1"
+assembled = 2026-07-06
+snapshot_years = [2035, 2050]
+
+# ----------------------------------------------------------------------------
+# Sources. FES files are the ALREADY-PINNED pack (data/packs/fes2025,
+# fetched 2026-07-03; checksums re-verified bit-identical 2026-07-06 —
+# no new FES fetch). CB7 files fetched 2026-07-06.
+# ----------------------------------------------------------------------------
+[sources.fes2025_es1]
+title = "FES: Pathways to Net Zero - Electricity Supply Data Table (ES1), 2025 edition v006"
+url = "https://api.neso.energy/dataset/549b0667-b533-4748-95bd-f6e13933a47d/resource/6c78a777-b885-4bb6-bc35-8100f9e137a2/download/fes2025_es1_v006.csv"
+sha256 = "7b7957443d37a09304fe2877bfa2a7a2fa71f8c00cb9f26308bd58391a4ff805"
+retrieved = 2026-07-03
+licence = "NESO Open Data Licence (attribution: 'Supported by National Energy SO Open Data')"
+
+[sources.fes2025_ed1]
+title = "FES: Electricity Demand Summary Data Table (ED1), 2025 edition v006"
+url = "https://api.neso.energy/dataset/2c15c755-d8fe-4229-9169-3b6dd7c88fec/resource/300c07b9-baeb-4411-bc40-987cbb4aec0b/download/fes2025_ed1_v006.csv"
+sha256 = "bd36b16b3f3d0cc5cc8e5118590777d18e3e501a72b325b3de617aa17d15bc24"
+retrieved = 2026-07-03
+licence = "NESO Open Data Licence"
+
+[sources.fes2025_flx1]
+title = "FES: Flexibility Data Table (FLX1), 2025 edition v006 — independent cross-check only"
+url = "https://api.neso.energy/dataset/2e3275e2-dd6a-4c2e-8cfb-eeb9b4320dcb/resource/299bc6c8-7608-4946-ab0a-5bc22129c897/download/fes2025_flx1_v006.csv"
+sha256 = "a5049beb77c3a58ba21f975177d309b207c667176a702387b269102fa4594462"
+retrieved = 2026-07-03
+licence = "NESO Open Data Licence"
+
+[sources.fes2025_report]
+title = "FES: NESO Pathways to Net Zero 2025 (report PDF, 14 July 2025) — published-table spot-checks only"
+url = "https://www.neso.energy/document/364541/download"
+sha256 = "184c745d74cbf406f3adf5c4b1d73796cfa61d48453414fb30ba4ce3a7172a34"
+retrieved = 2026-07-03
+licence = "NESO Open Data Licence"
+
+[sources.cb7_charts]
+title = "The Seventh Carbon Budget - Charts and data in the report (v2, xlsx) — capacity mix (sheet 7.5.3) and CCC milestones (sheet 7.5.4)"
+url = "https://www.theccc.org.uk/wp-content/uploads/2025/02/The-Seventh-Carbon-Budget-Charts-and-data-in-the-report-v2.xlsx"
+sha256 = "c24c94d3bc0b49d43cd0da3db80caa09464872b1a61da4cf473cc24796d372ab"
+retrieved = 2026-07-06
+licence = "OGL v3.0 (site-wide statement, theccc.org.uk/copyright-terms-conditions/; no overriding statement in the workbook)"
+
+[sources.cb7_dataset]
+title = "The Seventh Carbon Budget - full dataset (xlsx) — demand series (Economy-wide / Sector-level data sheets)"
+url = "https://www.theccc.org.uk/wp-content/uploads/2025/02/The-Seventh-Carbon-Budget-full-dataset.xlsx"
+sha256 = "fe5fbe17d81065c99f3a534e8ecb2af01e379edf291c9429baad9d17d0f6ff72"
+retrieved = 2026-07-06
+licence = "OGL v3.0 (as above)"
+
+[sources.cb7_report]
+title = "The Seventh Carbon Budget - Advice for the UK Government (26 Feb 2025, report PDF) — Table 7.5.1 p.208 (storage GWh), Figure 7.5.3 notes p.213 (bucket definitions)"
+url = "https://www.theccc.org.uk/wp-content/uploads/2025/02/The-Seventh-Carbon-Budget.pdf"
+sha256 = "891fa9c010cd8020b6580cce05874c89072ab5ddfcc2b8b798162205b9bf91d3"
+retrieved = 2026-07-06
+licence = "CCC permissive reproduction notice (printed p.3): reproduce free of charge in any format, accurately, not misleading; acknowledge 'Climate Change Committee copyright' + document title"
+
+[sources.cb7_corrections]
+title = "Seventh Carbon Budget and devolved carbon budgets - corrections log (Sept 2025) — read in full: ~20 corrections across three report families; ONE touches Table 7.5.1 (p.208): the low-carbon dispatchable LEVELISED-COST rows (price variables not carried here); the storage/demand/capacity rows extracted here are unaffected; the v2 charts workbook is the corrected reissue published with the log"
+url = "https://www.theccc.org.uk/wp-content/uploads/2025/02/Seventh-Carbon-Budget-and-devolved-carbon-budgets-corrections-log.pdf"
+sha256 = "77cc63f6d135a3d0eb16135109549eda7fb76f2b01dfc0d71cdc5101f6f939a5"
+retrieved = 2026-07-06
+licence = "as cb7_report"
+
+# ============================================================================
+# PATHWAY 1 — NESO FES 2025, "Electric Engagement" (GB)
+#
+# PATHWAY CHOICE (flagged judgment call, evidence note §3): the work order
+# asked for "the system-transformation-style high-electrification pathway".
+# In the FES 2021-2023 naming, "System Transformation" was the HYDROGEN-led
+# pathway and "Consumer Transformation" the high-electrification one; in
+# FES 2025 the high-electrification pathway is ELECTRIC ENGAGEMENT
+# ("Net zero is achieved in Electric Engagement mainly through
+# electrified demand. Consumers are highly engaged in the transition
+# …" — report PDF p.26, pathways overview).
+# Electric Engagement is picked because (a) it is FES 2025's
+# high-electrification case as ordered; (b) Holistic Transition (the
+# central pathway) is ALREADY committed at full annual resolution in
+# data/reference/fes-pathway.toml — duplicating it adds nothing; (c) EE is
+# the demand-side stress case (peak 143.6 GW in 2050) that complements the
+# CCC Balanced Pathway (itself electrification-led) and the Royal Society
+# scenarios.
+#
+# EXTRACTION: same mapping rules as fes-pathway.toml (grid-connected tiers
+# Transmission + Distributed + Distributed - Micro; Non-Networked excluded
+# and listed under exclusions; ccgt <- CCGT + Gas CCGT CHP + CCS Gas;
+# ocgt <- OCGT + Gas Recips + Gas CHP; oil <- Diesel + Fuel Oil;
+# nuclear <- Large + Small; biomass <- Biomass + Biomass CHP + CCS Biomass;
+# waste <- Waste + Waste CHP; hydrogen_turbine <- Hydrogen + Hydrogen
+# Peaking + Hydrogen CHP; battery <- Storage/Battery; pumped_hydro <-
+# LDES Pumped Hydro + Liquid Air + Compressed Air). Component splits are
+# given per entry so the folds stay auditable without reopening the CSV.
+#
+# VALIDATION (evidence note §4): every mapped sum cross-checked against
+# the INDEPENDENT FLX1 table (battery/LDES power+energy, interconnectors,
+# hydrogen generation, CCS gas, unabated gas, unabated biomass — all
+# bit-identical at 2035 and 2050) and against the report's published
+# per-pathway tables (Tables 24-34: offshore 47.8/96.4, onshore 29.0/50.7,
+# solar 46.8/101.0 incl. non-networked, tidal 4.3, nuclear 4.1/21.6,
+# battery 25.2/40.4, LDES 3.8/16.6, interconnectors 12.5/24.4, low-carbon
+# dispatchable 0.0/54.2, unabated gas 35.3/6.3, BECCS 4.2 — all match at
+# the report's 1 dp).
+#
+# DEMAND BASIS: ED1 "GBFES System Demand: Total" (GWh, "Annual [Fiscal]" —
+# fiscal-year accounting; ES1 capacity columns carry plain year labels;
+# convention flag in the evidence note §6). Includes network losses and
+# grid-connected electrolysis. GB scope.
+# ============================================================================
+[pathways.fes2025_electric_engagement]
+name = "Electric Engagement"
+edition = "FES 2025 (published 2025-07-14; data tables v006, portal last_modified 2025-12-10)"
+geography = "GB"
+attribution = "Supported by National Energy SO Open Data"
+
+[[pathways.fes2025_electric_engagement.years]]
+year = 2035
+demand_twh = 450.076          # ED1 System Demand Total, EE, 2035: 450,076 GWh (fiscal)
+peak_demand_gw = 82.042       # ED1 "GBFES Peak Customer Demand: Total Consumption plus Losses", EE, 2035
+
+# Demand components, TWh (ED1, EE, 2035; level-2 rows sum to the total:
+# 136.577+158.345+115.906+4.321+9.004+25.923 = 450.076 — exact at the
+# carried 3 dp; raw-GWh residual +0.063 GWh vs the published total).
+[pathways.fes2025_electric_engagement.years.demand_components]
+residential_twh = 136.577               # "GBFES Customer Demand: Residential"
+commercial_twh = 158.345                # "... Underlying Commercial including unmetered demand"
+industrial_incl_electrolysis_twh = 115.906  # "... Total Industrial (Electrolysis & District Heat included)"
+direct_transmission_twh = 4.321         # "... Direct Transmission Customers"
+losses_transmission_twh = 9.004         # "GBFES System Losses: Transmission"
+losses_distribution_twh = 25.923        # "GBFES System Losses: Distribution"
+# Electrification markers (subsets of the above, NOT additive to the total):
+residential_heat_pumps_twh = 18.223     # ED1 level-3 "Residential Heat Pumps"
+residential_resistive_heat_twh = 3.478  # ED1 level-3 "Residential Resistive Heat Demand"
+residential_evs_twh = 41.488            # ED1 level-3 "Residential Electric Vehicles Demand (EVs)"
+commercial_evs_twh = 31.404             # ED1 level-4 "Commercial Electric Vehicles Demand (EVs)"
+networked_electrolysis_twh = 7.360      # ED1 level-3 "GBFES Customer Demand: Networked Electrolysis"
+data_centres_twh = 40.665               # ED1 level-5 "Data Centre Demand"
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "ccgt"
+capacity_gw = 20.0968
+# ES1: Gas/CCGT 12.6878 + Gas/Gas CCGT CHP 0.2260 + CCS Gas/CCS Gas 7.1830.
+# CCS-gas fold caveat (exclusions note e1): 7.183 GW of this is ABATED plant.
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "ocgt"
+capacity_gw = 7.0555
+# ES1: Gas/OCGT 2.5616 + Gas Reciprocating Engines 3.4200 + Gas CHP 1.0739.
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "oil"
+capacity_gw = 0.2425          # Other Thermal/Diesel 0.1025 + Fuel Oil 0.1400
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "nuclear"
+capacity_gw = 5.51            # Nuclear - Large 4.57 + Nuclear - Small 0.94 (SMRs)
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "biomass"
+capacity_gw = 5.415
+# Biomass 1.1430 + Biomass CHP 0.1020 + CCS Biomass (BECCS) 4.1700.
+# BECCS fold caveat (exclusions note e2): 4.17 GW of this is abated.
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "waste"
+capacity_gw = 3.7013          # Waste 2.9521 + Waste CHP 0.7492
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "hydro"
+capacity_gw = 2.0105
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "marine"
+capacity_gw = 1.6844          # Other Renewable/Marine (report calls this Tidal)
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "other"
+capacity_gw = 0.011           # Other Renewable/Geothermal CHP
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "onshore_wind"
+capacity_gw = 38.5758
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "offshore_wind"
+capacity_gw = 67.5195         # EE has NO non-networked offshore tier (unlike HT)
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "solar"
+capacity_gw = 62.058          # grid-connected; non-networked 0.0128 GW excluded (e4)
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "interconnector"
+capacity_gw = 20.6            # ES1 = FLX1 = report Table 30 (12.5 GW 2030 / 24.4 GW 2050)
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "hydrogen_turbine"
+capacity_gw = 0.9958
+# Hydrogen 0 + Hydrogen Peaking 0.9408 + Hydrogen CHP 0.0550. Open-set id,
+# exclusions note e3 (no fuel-chain cost linkage; inertia default
+# non-synchronous unless the scenario sets inertia_h).
+
+[[pathways.fes2025_electric_engagement.years.storage]]
+kind = "battery"
+power_gw = 32.5973
+energy_gwh = 45.9488          # FLX1 cross-check bit-identical (both legs)
+
+[[pathways.fes2025_electric_engagement.years.storage]]
+kind = "pumped_hydro"
+power_gw = 8.5781
+energy_gwh = 89.3982
+# Pumped Hydro 5.7999/71.6623 + Liquid Air 2.6549/17.1194 +
+# Compressed Air 0.1233/0.6165 (the fes-pathway.toml LDES fold).
+
+[[pathways.fes2025_electric_engagement.years]]
+year = 2050
+demand_twh = 784.736          # ED1 System Demand Total, EE, 2050: 784,736 GWh (fiscal)
+peak_demand_gw = 143.625
+
+# Level-2 rows sum: 232.730+279.744+213.126+2.708+14.959+41.469 = 784.736
+# (exact at the carried 3 dp; raw-GWh residual -0.561 GWh vs the published total).
+[pathways.fes2025_electric_engagement.years.demand_components]
+residential_twh = 232.730
+commercial_twh = 279.744
+industrial_incl_electrolysis_twh = 213.126
+direct_transmission_twh = 2.708
+losses_transmission_twh = 14.959
+losses_distribution_twh = 41.469
+residential_heat_pumps_twh = 58.505
+residential_resistive_heat_twh = 14.643
+residential_evs_twh = 54.370
+commercial_evs_twh = 77.378
+networked_electrolysis_twh = 81.910
+data_centres_twh = 70.562
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "ccgt"
+capacity_gw = 31.035
+# Gas/CCGT 4.3900 + Gas CCGT CHP 0.0 + CCS Gas 26.6450. NOTE: unlike HT,
+# EE keeps 4.39 GW of UNABATED CCGT in 2050 (reserve plant; report
+# Table 33 unabated gas 2050 = 6.3 GW = this 4.39 + ocgt 1.9568).
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "ocgt"
+capacity_gw = 1.9568          # OCGT 1.1970 + Recips 0.7500 + Gas CHP 0.0098
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "oil"
+capacity_gw = 0.0615
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "nuclear"
+capacity_gw = 21.56           # Nuclear - Large 8.85 + Nuclear - Small 12.71 (SMRs); report Table 31: 21.6
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "biomass"
+capacity_gw = 5.2133          # Biomass 0.9180 + CHP 0.1253 + BECCS 4.1700
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "waste"
+capacity_gw = 2.6455
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "hydro"
+capacity_gw = 2.1509
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "marine"
+capacity_gw = 4.2644          # report Table 27 tidal 2050: 4.3 GW
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "other"
+capacity_gw = 0.011
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "onshore_wind"
+capacity_gw = 50.7156
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "offshore_wind"
+capacity_gw = 96.3654         # report Table 24: 96.4 (no non-networked tier in EE)
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "solar"
+capacity_gw = 100.9131
+# grid-connected; + non-networked 0.0556 = 100.9687 ~= report Table 26's
+# 101.0 (the report headline INCLUDES non-networked — HT precedent).
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "interconnector"
+capacity_gw = 24.4
+
+[[pathways.fes2025_electric_engagement.years.fleet]]
+technology = "hydrogen_turbine"
+capacity_gw = 27.5201
+# Hydrogen 18.9970 + Hydrogen Peaking 8.3820 + Hydrogen CHP 0.1411.
+# Report Table 32 low-carbon dispatchable 2050 = 54.2 GW = this + CCS gas
+# 26.645 (sum 54.1651 — matches at 1 dp).
+
+[[pathways.fes2025_electric_engagement.years.storage]]
+kind = "battery"
+power_gw = 40.4449
+energy_gwh = 60.257
+
+[[pathways.fes2025_electric_engagement.years.storage]]
+kind = "pumped_hydro"
+power_gw = 16.5781
+energy_gwh = 223.3982
+# PH 5.7999/71.6623 + LAES 4.6549/31.1194 + CAES 6.1233/120.6165.
+
+# EXCLUSIONS — FES Electric Engagement (magnitudes so the scenario package
+# can state coverage honestly; evidence note §5):
+[pathways.fes2025_electric_engagement.exclusions]
+# e1: CCS gas folded into ccgt (same rotating machine class; the
+#     fes-pathway.toml rule). Economic caveat: abated plant with a
+#     different SRMC/carbon position than unabated CCGT.
+ccs_gas_in_ccgt_gw = { y2035 = 7.183, y2050 = 26.645 }
+# e2: BECCS folded into biomass (same steam class; NESO's own headline
+#     groups Biomass/BECCS).
+ccs_biomass_in_biomass_gw = { y2035 = 4.17, y2050 = 4.17 }
+# e3: hydrogen turbines carried as open-set id hydrogen_turbine — engine
+#     v1 has no hydrogen fuel-chain cost/supply linkage; non-synchronous
+#     inertia default unless inertia_h is set (grid-core/src/inertia.rs).
+hydrogen_turbine_gw = { y2035 = 0.9958, y2050 = 27.5201 }
+# e4: Non-networked (never grid-connected, direct-wired) tier excluded
+#     from fleet entries. EE has non-networked SOLAR only.
+non_networked_solar_gw = { y2035 = 0.0128, y2050 = 0.0556 }
+# e5: DSR and V2G: NESO publishes peak-impact decompositions (FLX1) and an
+#     ES1 'Demand Reduction' energy line, not storage power/energy pairs;
+#     FLX1 storage totals exclude V2G and so does this file. Deriving a
+#     StorageKind dsr entry would be a modelling choice, not transcription.
+dsr_and_v2g = "not transcribed (no published power/energy pair)"
+# e6: grid-connected electrolysis demand (7.36 TWh 2035 / 81.91 TWh 2050)
+#     is INSIDE industrial demand above; the engine would treat it as firm
+#     demand unless separately modelled — flexibility overstatement flag.
+electrolysis_demand_note = "included in demand as firm load; 7.360 TWh (2035), 81.910 TWh (2050)"
+
+# ============================================================================
+# PATHWAY 2 — CCC Seventh Carbon Budget, "Balanced Pathway" (UK)
+#
+# The Seventh Carbon Budget advice (26 Feb 2025) is the CCC's current
+# carbon-budget pathway; licence-clean (OGL v3.0 site statement, §2 of the
+# evidence note), so CB7 is used, not CB6. The Sept-2025 corrections log
+# was checked: no correction touches the electricity supply capacity or
+# demand figures. The March-2026 "Supplementary analysis" report exists
+# but the Feb-2025 advice dataset remains the pathway of record.
+#
+# SCOPE FLAG: CCC numbers are UNITED KINGDOM; the engine models GB.
+# Northern Ireland (~3% of UK electricity demand; part of the Irish
+# synchronous area) is NOT separable from the published tables. Carried
+# as-published; the scenario package must state the UK-as-GB approximation
+# or derate — its decision, flagged here.
+#
+# GRANULARITY: CCC publishes capacity in ELEVEN buckets (Figure 7.5.3),
+# far coarser than FES. Only five map unambiguously to engine ids; the
+# rest are carried as aggregates with mappable = false.
+#
+# CITATIONS: capacity mix = charts workbook sheet "7.5.3" (rows 13-23,
+# columns 2023/2030/2035/2040/2045/2050); battery / medium-duration GW =
+# sheet "7.5.4" CCC-milestone rows; storage GWh = report Table 7.5.1
+# (printed p.208, rounded integers as published); demand = full dataset
+# "Economy-wide data" / "Sector-level data" sheets (scenario = Balanced
+# Pathway, variable = "Energy: gross demand electricity").
+# Bucket definitions = Figure 7.5.3 notes (report p.213): "'Other'
+# includes unabated biomass, energy from waste, hydro, and combined heat
+# and power. Low-carbon dispatchable includes gas CCS and hydrogen."
+# ============================================================================
+[pathways.ccc_cb7_balanced]
+name = "Balanced Pathway"
+edition = "The Seventh Carbon Budget (CCC, 26 Feb 2025; charts workbook v2)"
+geography = "UK"                # NOT GB — see scope flag above
+attribution = "Climate Change Committee, The Seventh Carbon Budget (2025); CCC and AFRY analysis"
+
+[[pathways.ccc_cb7_balanced.years]]
+year = 2035
+demand_twh = 443.541
+surplus_electrolysis_excluded_twh = 29.0
+# Full dataset, Economy-wide, "Energy: gross demand electricity", Balanced
+# Pathway, UK, 2035 = 443.5405884900234 TWh. Report Table 7.5.1 rounds to
+# 444. Dataset definition (Variable definitions sheet, verbatim): "Gross
+# energy demands are inclusive of all system-wide uses of each fuel type
+# from the sector's perspective, regardless of whether the fuel is used at
+# primary or final stage." Calendar year; before-losses caveats per
+# Figure 7.5.3 note (2).
+# demand_twh EXCLUDES surplus-driven electrolysis: "The production of
+# hydrogen from surplus generation accounts for an additional 29 TWh of
+# electricity use in 2035 and 89 TWh in 2050" (report p.208, under
+# Table 7.5.1; Fig 7.5.3 note 6: "Generation includes surplus electricity
+# used for electrolytic hydrogen production") — the CCC fleet is sized to
+# serve demand PLUS this. See [pathways.ccc_cb7_balanced.exclusions].
+
+# Sector components, TWh (full dataset, Sector-level data, same variable;
+# sum = 443.541, reconciled exact against the economy-wide total):
+[pathways.ccc_cb7_balanced.years.demand_components]
+residential_buildings_twh = 137.883
+non_residential_buildings_twh = 91.984
+industry_twh = 98.801
+surface_transport_twh = 100.970
+agriculture_twh = 3.460
+shipping_twh = 2.253
+aviation_twh = 0.0
+fuel_supply_twh = 7.564
+engineered_removals_twh = 0.626
+
+[[pathways.ccc_cb7_balanced.years.fleet]]
+technology = "nuclear"
+capacity_gw = 6.09            # sheet 7.5.3 row 13
+
+[[pathways.ccc_cb7_balanced.years.fleet]]
+technology = "offshore_wind"
+capacity_gw = 70.0            # sheet 7.5.3 row 15 (= 7.5.4 milestone 70)
+
+[[pathways.ccc_cb7_balanced.years.fleet]]
+technology = "onshore_wind"
+capacity_gw = 28.89           # sheet 7.5.3 row 16
+
+[[pathways.ccc_cb7_balanced.years.fleet]]
+technology = "solar"
+capacity_gw = 70.01           # sheet 7.5.3 row 17
+
+[[pathways.ccc_cb7_balanced.years.fleet]]
+technology = "interconnector"
+capacity_gw = 20.938          # sheet 7.5.3 row 21 "Interconnection"
+
+[[pathways.ccc_cb7_balanced.years.storage]]
+kind = "battery"
+power_gw = 21.04              # sheet 7.5.4 "Battery storage output capacity", CCC milestone, 2035
+energy_gwh = 54.0             # report Table 7.5.1 p.208 "21 / 54" — ROUNDED INTEGER as published
+energy_precision = "rounded integer (Table 7.5.1); no machine-readable GWh series published"
+
+[[pathways.ccc_cb7_balanced.years.storage]]
+kind = "pumped_hydro"
+power_gw = 5.71               # sheet 7.5.4 "Medium-duration electricity storage output capacity", 2035
+energy_gwh = 312.0            # Table 7.5.1 "6 / 312" (excl. hydrogen storage) — ROUNDED as published
+energy_precision = "rounded integer (Table 7.5.1)"
+# Mapping note: CCC "medium-duration storage (excl. hydrogen)" = pumped
+# hydro + other MDES; assigned to pumped_hydro per the fes-pathway.toml
+# LDES fold. 312 GWh at 5.71 GW ~= 55 h duration — far deeper than the FES
+# LDES fleet; the scenario package should treat the GWh as CCC's storable-
+# energy planning volume, not a single-plant spec.
+# Cross-check: battery 21.04 + medium 5.71 = 26.75 = sheet 7.5.3 row 22
+# "Grid storage" 2035 (exact).
+
+[[pathways.ccc_cb7_balanced.years]]
+year = 2050
+demand_twh = 692.025          # Economy-wide, 2050 = 692.0252594617826 TWh (Table 7.5.1: 692)
+surplus_electrolysis_excluded_twh = 89.0  # report p.208 (see the 2035 block note and [exclusions])
+
+[pathways.ccc_cb7_balanced.years.demand_components]
+# Sum = 692.025, reconciled exact.
+residential_buildings_twh = 234.709
+non_residential_buildings_twh = 120.731
+industry_twh = 142.699
+surface_transport_twh = 162.839
+agriculture_twh = 3.048
+shipping_twh = 3.732
+aviation_twh = 4.632
+fuel_supply_twh = 4.736
+engineered_removals_twh = 14.899
+
+[[pathways.ccc_cb7_balanced.years.fleet]]
+technology = "nuclear"
+capacity_gw = 10.98
+
+[[pathways.ccc_cb7_balanced.years.fleet]]
+technology = "offshore_wind"
+capacity_gw = 125.0
+
+[[pathways.ccc_cb7_balanced.years.fleet]]
+technology = "onshore_wind"
+capacity_gw = 37.41
+
+[[pathways.ccc_cb7_balanced.years.fleet]]
+technology = "solar"
+capacity_gw = 106.4
+
+[[pathways.ccc_cb7_balanced.years.fleet]]
+technology = "interconnector"
+capacity_gw = 27.938
+
+[[pathways.ccc_cb7_balanced.years.storage]]
+kind = "battery"
+power_gw = 35.11              # sheet 7.5.4 milestone 2050
+energy_gwh = 139.0            # Table 7.5.1 "35 / 139" — ROUNDED as published
+energy_precision = "rounded integer (Table 7.5.1)"
+
+[[pathways.ccc_cb7_balanced.years.storage]]
+kind = "pumped_hydro"
+power_gw = 6.92               # sheet 7.5.4 milestone 2050
+energy_gwh = 433.0            # Table 7.5.1 "7 / 433" — ROUNDED as published
+energy_precision = "rounded integer (Table 7.5.1)"
+# Cross-check: 35.11 + 6.92 = 42.03 = sheet 7.5.3 "Grid storage" 2050 (exact).
+
+# EXCLUSIONS — CCC Balanced Pathway (the every-exclusion-with-magnitude
+# law; evidence note §5/§6):
+[pathways.ccc_cb7_balanced.exclusions]
+# c1: SURPLUS-DRIVEN ELECTROLYSIS DEMAND is excluded from demand_twh:
+#     "The production of hydrogen from surplus generation accounts for an
+#     additional 29 TWh of electricity use in 2035 and 89 TWh in 2050"
+#     (report p.208, immediately under Table 7.5.1; Fig 7.5.3 note 6).
+#     Duplicated machine-visibly as surplus_electrolysis_excluded_twh on
+#     each year block above — the two sites must stay in step.
+surplus_electrolysis_demand_twh = { y2035 = 29.0, y2050 = 89.0 }
+# DEMAND-BASIS WEDGE (load-bearing for any FES-vs-CCC comparison): FES
+# demand INCLUDES grid-connected electrolysis (7.360 TWh 2035 / 81.910 TWh
+# 2050, FES exclusions e6); CCC demand EXCLUDES surplus electrolysis. On a
+# like-for-like gross-incl-electrolysis basis, 2050 is ~781 TWh (CCC,
+# 692.025 + 89) vs ~785 TWh (FES EE) — nearly identical, where the
+# headline 692-vs-785 comparison suggests a 93 TWh gap. 2035 inverts:
+# ~472.5 TWh (CCC, 443.541 + 29) vs 450.076 TWh (FES EE).
+demand_basis_wedge = "FES demand_twh includes electrolysis; CCC demand_twh excludes surplus electrolysis — never compare the two headline demands without this wedge"
+# WARNING: a scenario that runs demand_twh = 692.025 against the published
+# CCC fleet UNDER-LOADS that fleet by ~13% (89/692) and will misstate
+# curtailment and adequacy — the fleet is sized for demand + electrolysis.
+scenario_warning = "running 692 TWh against the CCC 2050 fleet under-loads it ~13%; add the electrolysis load (as flexible or firm, a declared convention) before quoting adequacy/curtailment"
+
+# ----------------------------------------------------------------------------
+# CCC AGGREGATES — published buckets the engine's technology ids CANNOT
+# take without a split or modelling decision. mappable = false is
+# LOAD-BEARING: a scenario builder MUST NOT consume these rows without a
+# declared, reviewed split rule (the split is the scenario package's
+# decision, not this file's). Values from sheet 7.5.3 (GW).
+# ----------------------------------------------------------------------------
+[[pathways.ccc_cb7_balanced.aggregates]]
+name = "unabated_gas"
+mappable = false
+capacity_gw = { y2035 = 29.71, y2050 = 0.0 }
+definition = "sheet 7.5.3 row 19; CCGT/OCGT split NOT published by CCC"
+suggested_treatment = "scenario package declares a split rule (e.g. FES EE 2035 CCGT:OCGT ratio, or all-CCGT labelled conservative) — reviewed, not silent"
+
+[[pathways.ccc_cb7_balanced.aggregates]]
+name = "low_carbon_dispatchable"
+mappable = false
+capacity_gw = { y2035 = 8.49, y2050 = 38.28 }
+definition = "sheet 7.5.3 row 18; 'includes gas CCS and hydrogen' (Fig 7.5.3 note 3, report p.213); component split NOT published"
+suggested_treatment = "if consumed: split decision required between ccgt(CCS-fold) and hydrogen_turbine; magnitude makes this the largest unmapped CCC bucket in 2050"
+
+[[pathways.ccc_cb7_balanced.aggregates]]
+name = "other_generation"
+mappable = false
+capacity_gw = { y2035 = 7.57, y2050 = 5.5 }
+definition = "sheet 7.5.3 row 20; 'unabated biomass, energy from waste, hydro, and combined heat and power' (Fig 7.5.3 note 3); split NOT published"
+suggested_treatment = "unsplittable from CCC sources; a scenario may apportion against DUKES 2024 (the CCC's own stated base) as a labelled construction"
+
+[[pathways.ccc_cb7_balanced.aggregates]]
+name = "ccs_biomass"
+mappable = false
+capacity_gw = { y2035 = 1.29, y2050 = 1.29 }
+definition = "sheet 7.5.3 row 14 (BECCS)"
+suggested_treatment = "biomass id per the BECCS fold precedent — BUT note the biomass id would then EXCLUDE unabated biomass (which sits inside other_generation): a partial-coverage trap, hence mappable = false here"
+
+[[pathways.ccc_cb7_balanced.aggregates]]
+name = "smart_demand_flexibility"
+mappable = false
+capacity_gw = { y2035 = 22.0, y2050 = 32.55 }
+definition = "sheet 7.5.3 row 23; 'the flexibility at peak' (Fig 7.5.3 note 3) — a peak-GW DSR quantity, not a storage power/energy pair"
+suggested_treatment = "not transcribable (same ruling as FES DSR, exclusions e5)"

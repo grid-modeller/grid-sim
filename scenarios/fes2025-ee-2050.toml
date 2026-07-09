@@ -1,0 +1,150 @@
+# FES 2025 "Electric Engagement" 2050 fleet under 2024 weather —
+# Stage 7 published-pathway scenario. ALL conventions 1-8 of
+# scenarios/fes2025-ee-2035.toml apply verbatim (one header, stated
+# once — read it first); this file records only the 2050 quantities
+# and the deltas. Data: data/reference/pathways-published.toml
+# (FES EE 2050); pins: grid-adequacy/tests/acceptance_stage7_pathways.rs.
+#
+# 2050-specific notes:
+#  - Demand 784.736 TWh (ED1 System Demand Total, fiscal label),
+#    INCLUDING 81.910 TWh grid-connected electrolysis as FIRM load
+#    (e6 flexibility-overstatement flag — adequacy-ADVERSE; any
+#    FES-vs-CCC comparison must carry the demand-basis wedge: the CCC
+#    2050 basis EXCLUDES its 89 TWh surplus electrolysis; like-for-like
+#    gross-incl-electrolysis is ~785 (FES) vs ~781 (CCC) TWh).
+#    Scaled-shape peak =~ 142.4 GW vs published FES peak 143.625 GW.
+#  - Fold splits (convention 6): ccgt fold 31.035 = unabated 4.39
+#    (EE keeps 4.39 GW unabated CCGT in 2050 — report Table 33) +
+#    ccgt_ccs 26.645; biomass fold 5.2133 = unabated 1.0433 (0.9180 +
+#    CHP 0.1253) + beccs 4.17.
+#  - Excluded with magnitude (convention 7): marine (tidal) 4.2644 GW
+#    (report Table 27: 4.3), geothermal CHP 0.011 GW, non-networked
+#    solar 0.0556 GW (e4).
+#  - hydrogen_turbine 27.5201 GW is the pathway's deep-backup fleet:
+#    the e3 caveat (no H2 fuel-chain cost/supply constraint —
+#    dispatches as unlimited-fuel firm plant, pathway-favourable) is
+#    LOAD-BEARING at this scale and travels on every quote.
+
+schema_version = 8   # v8: version line only (no heating resource_depth_m set; docs/03 migration)
+name = "fes2025-ee-2050"
+description = "FES 2025 Electric Engagement 2050 fleet under 2024 weather: single-zone GB, 2024 demand shape scaled to 784.736 TWh, autarkic (Stage 7 published-pathway pack)"
+
+[horizon]
+start = "2024-01-01T00:00:00Z"
+end   = "2024-12-31T23:30:00Z"
+weather_years = [2024]
+
+[[zones]]
+id = "GB"
+
+[zones.demand]
+base_profile = "data/packs/2024/processed/demand_2024.parquet"
+column = "underlying_demand"
+# 784.736 TWh / 261.8258865 TWh (measured 2024 trace total).
+annual_scale = 2.9971673561009786
+
+# --- Dispatchable fleet (FES EE 2050) ---
+
+[[zones.fleet]]
+technology = "nuclear"
+capacity_gw = 21.56              # Large 8.85 + Small (SMR) 12.71; report Table 31: 21.6
+
+[[zones.fleet]]
+technology = "biomass"
+capacity_gw = 1.0433             # unabated: Biomass 0.9180 + CHP 0.1253
+
+[[zones.fleet]]
+technology = "beccs"
+capacity_gw = 4.17               # CCS Biomass (e2)
+
+[[zones.fleet]]
+technology = "waste"
+capacity_gw = 2.6455
+
+[[zones.fleet]]
+technology = "hydro"
+capacity_gw = 2.1509
+[zones.fleet.availability]
+flat = 0.2147                    # 2024 calibrated energy limitation (convention 4)
+
+[[zones.fleet]]
+technology = "ccgt_ccs"
+capacity_gw = 26.645             # CCS Gas (e1); no SRMC recipe (convention 5)
+
+[[zones.fleet]]
+technology = "ccgt"
+capacity_gw = 4.39               # EE's residual UNABATED CCGT in 2050 (reserve plant)
+
+[[zones.fleet]]
+technology = "ocgt"
+capacity_gw = 1.9568             # OCGT 1.1970 + Recips 0.7500 + Gas CHP 0.0098
+
+[[zones.fleet]]
+technology = "oil"
+capacity_gw = 0.0615
+
+[[zones.fleet]]
+technology = "hydrogen_turbine"
+capacity_gw = 27.5201            # Hydrogen 18.9970 + Peaking 8.3820 + CHP 0.1411 (e3 caveats travel)
+
+# --- Weather-driven (2024 ERA5 CF traces) ---
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 96.3654            # report Table 24: 96.4
+capacity_factor_trace = "data/packs/2024/processed/gb_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 50.7156
+capacity_factor_trace = "data/packs/2024/processed/gb_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 100.9131           # grid-connected; + non-networked 0.0556 excluded = report's 101.0
+capacity_factor_trace = "data/packs/2024/processed/gb_solar_cf_2024.parquet"
+
+# EXCLUDED WITH MAGNITUDE: marine 4.2644 GW, geothermal CHP 0.011 GW.
+
+# --- Storage ---
+
+[[zones.storage]]
+kind = "pumped_hydro"
+power_gw = 16.5781               # LDES fold: PH 5.7999 + LAES 4.6549 + CAES 6.1233
+energy_gwh = 223.3982
+round_trip_efficiency = 0.76
+dispatch_order = 1
+
+[[zones.storage]]
+kind = "battery"
+power_gw = 40.4449
+energy_gwh = 60.257
+round_trip_efficiency = 0.88
+dispatch_order = 2
+
+# --- Interconnection: published 24.4 GW, INERT (autarky convention) ---
+
+[[links]]
+name = "aggregate-interconnection-inert"
+from = "GB"
+to = "EXT"
+capacity_gw = 24.4
+availability = 0.0
+
+[dispatch]
+policy = "rule_based"
+
+[pricing]
+reference = "data/reference/prices-2024.toml"
+
+[pricing.fuel_price.gas]
+path = "data/packs/2024/processed/gas_sap_daily_2024.parquet"
+column = "sap_gbp_per_mwh_hhv"
+
+[pricing.srmc.ccgt]
+fuel = "gas"
+efficiency = "ccgt"
+
+[pricing.srmc.ocgt]
+fuel = "gas"
+efficiency = "ocgt"

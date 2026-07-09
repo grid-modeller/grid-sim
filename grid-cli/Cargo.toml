@@ -1,0 +1,33 @@
+[package]
+name = "grid-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "grid-sim research CLI: run, sweep, solve, validate, fetch-data, plot"
+
+[dependencies]
+grid-core = { workspace = true }
+grid-adequacy = { workspace = true }
+grid-stability = { workspace = true }
+clap = { workspace = true }
+sha2 = { workspace = true }
+plotters = { workspace = true }
+arrow-array = { workspace = true }
+arrow-schema = { workspace = true }
+parquet = { workspace = true }
+# fetch-data (data-pack builder, docs/05): structured errors + the raw
+# source readers/HTTP client (justifications in the workspace dep table).
+thiserror = { workspace = true }
+serde = { workspace = true }
+ureq = { workspace = true }
+csv = { workspace = true }
+serde_json = { workspace = true }
+calamine = { workspace = true }
+
+# The CLI is the process top level: unwrap/expect and process exit are
+# permitted here (docs/06), so it does not inherit the workspace lint set.
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "deny"

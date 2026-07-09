@@ -1,0 +1,205 @@
+# The 9 August 2019 GB frequency event — Stage 6 acceptance event spec.
+#
+# Built from the committed reference record
+# data/reference/stability-2019-event.toml (assembled 2026-07-03 from the
+# NG ESO technical report + appendices, the Ofgem investigation report,
+# the E3C final report and the NESO 1-second frequency data; per-number
+# citations live there). This file adds ONLY the modelling conventions a
+# single-bus swing simulation needs; every choice is documented inline
+# and none was tuned against the gated anchors (T1–T3 tolerances were
+# pinned before this file existed; the damping and response-envelope
+# derivations below use un-gated features of the record).
+#
+# t = 0 is the transmission fault, 2019-08-09T15:52:33.490Z (the
+# reference record's [frequency.event_times_utc].fault).
+#
+# Cross-checked against the reference record by
+# grid-stability/tests/acceptance_aug2019.rs
+# (event_spec_matches_the_committed_reference_record).
+
+schema = "stability-event-v1"
+name = "GB 9 August 2019 loss-of-infeed event"
+
+f0_hz = 50.0
+demand_gw = 29.0          # ESO report Table 4 (p.24)
+inertia_gva_s = 210.0     # ESO report Table 4 headline; the acceptance
+                          # tests also run 219.632 (appendices Q42) —
+                          # the two official bounds, ~5 % apart.
+
+# Load damping, % of remaining demand per Hz of deviation. Not published
+# for the day (evidence report §3.5: literature 1–2.5 %/Hz). Derived
+# here from an UN-GATED feature of the record — the 49.2 Hz plateau
+# (16:53:18 → GT1A) balances the then-surviving response (secondary,
+# 1,055 MW delivered; primary sustain expired per the 30 s Grid Code
+# envelope) against the 1,481 MW cumulative loss:
+#   D = (1481 − 1055) MW / 0.8 Hz = 532.5 MW/Hz = 1.836 %/Hz of 29 GW,
+# inside the literature span.
+load_damping_percent_per_hz = 1.836
+
+duration_s = 300.0        # fault to past the 49.5 Hz recovery (16:55)
+timestep_ms = 10.0        # integrator step (see grid_stability::swing)
+
+# --- Staged infeed losses (ESO Table 2 p.14 + p.22; times from the
+# --- timeline, relative to the 15:52:33.490Z fault). Inputs, not
+# --- predictions (ADR-2). ---
+
+[[losses]]
+name = "embedded_vector_shift"
+mw = 150                  # ESO Table 2 (estimated)
+at_s = 0.0                # recorded 16:52:33 local (second resolution) —
+                          # vector-shift protection acts at the fault
+
+[[losses]]
+name = "hornsea_one"
+mw = 737                  # deloaded 799 → 62 MW
+at_s = 0.345              # 16:52:33.835 local
+
+[[losses]]
+name = "little_barford_st1c"
+mw = 244                  # the FINAL record's ST figure (641 MW is the
+                          # station total across three staged trips)
+at_s = 0.51               # 16:52:34 local
+
+[[losses]]
+name = "embedded_rocof"
+mw = 350                  # legacy 0.125 Hz/s loss-of-mains relays; ESO
+                          # central estimate (Ofgem range 350–430)
+at_s = 0.51               # 16:52:34 local
+
+[[losses]]
+name = "little_barford_gt1a"
+mw = 210
+at_s = 57.51              # 16:53:31 local
+
+[[losses]]
+name = "embedded_under_frequency_49hz"
+mw = 200                  # NET effect, ESO p.22 — back-inferred by the
+                          # ESO from this same frequency trace (evidence
+                          # report §3.2: partially circular input; the
+                          # 49.2→48.8 descent is diagnostic, not gated)
+at_s = 61.51              # ~16:53:35 local
+
+[[losses]]
+name = "little_barford_gt1b"
+mw = 187
+at_s = 84.51              # 16:53:58 local, after LFDD (recovery phase —
+                          # diagnostic only)
+
+# --- Frequency response: holdings × measured delivery factors (ESO
+# --- p.25: 1,022 MW primary held, 89 % of validated holdings delivered
+# --- = 841 MW; 1,314 MW secondary held, 88 % = 1,055 MW).
+#
+# The primary tranche is split on the record's own 472 MW of battery
+# storage (ESO p.4): batteries delivered sub-second (EFR-class plant;
+# contract full delivery within 1 s), the conventional remainder over
+# the Grid Code primary envelope (delivery from 2 s, full by 10 s).
+# ATTRIBUTION CHOICE, stated: the record does not say who under-
+# delivered; assigning the whole primary shortfall (841 vs 1,022) to
+# the conventional tranche (delivery factor 369/550 = 0.670909) is the
+# battery-favourable reading. Both primary tranches sustain 30 s from
+# activation (Grid Code CC.6.3.7 envelope) and hand off to secondary
+# over a 10 s rundown — the rundown length is a modelling convention
+# (an instantaneous step is unphysical; the handoff window is not
+# gated). Secondary ramps over 10–30 s (ESO timeline: ≥650 MW by
+# t≈10.5 s, ≥900 MW by t≈30.5 s) and sustains ≥30 min (beyond this
+# window). STOR (400 MW instructed from ~16:53) and the 1,240 MW of
+# control-room actions deliver over minutes, post-nadir — excluded;
+# the modelled recovery is therefore slower than the record's, and is
+# diagnostic only.
+#
+# All services are droop-proportional (dynamic), fully delivered at a
+# 0.5 Hz deviation — GB low-frequency response is dimensioned for
+# −0.5 Hz (SQSS normal-loss band). ---
+
+[[responses]]
+name = "battery_ffr"
+kind = "dynamic"
+mw = 472                  # ESO p.4
+delivery_factor = 1.0
+droop_full_deviation_hz = 0.5
+delay_s = 0.3
+ramp_s = 0.7              # full within 1 s of activation (EFR class)
+sustain_s = 30.0
+rundown_s = 10.0
+
+[[responses]]
+name = "conventional_primary"
+kind = "dynamic"
+mw = 550                  # 1,022 held − 472 battery
+delivery_factor = 0.670909  # (841 − 472) / 550: see attribution note
+droop_full_deviation_hz = 0.5
+delay_s = 2.0             # Grid Code primary envelope
+ramp_s = 8.0              # full by 10 s
+sustain_s = 30.0
+rundown_s = 10.0
+
+[[responses]]
+name = "secondary"
+kind = "dynamic"
+mw = 1314                 # ESO p.25
+delivery_factor = 0.802892  # 1,055 / 1,314 (validated delivered)
+droop_full_deviation_hz = 0.5
+delay_s = 10.0
+ramp_s = 20.0             # full by 30 s (timeline-consistent)
+# sustained ≥ 30 min: no sustain_s
+
+# --- LFDD: E3C final report Annex A Table 1 (England & Wales stage
+# --- table), blocks as percent-of-demand × 29 GW — EXCEPT stage 1,
+# --- which uses the observed 931 MW (ESO p.22: DNOs reported 931 MW =
+# --- 3.2 %, below the 5 % design block). Action delay: the published
+# --- 0.2–0.5 s relay+breaker range, centre 0.3 s (Ofgem 2.4.14:
+# --- frequency recovered above 48.8 Hz within 200 ms of LFDD). ---
+
+[lfdd]
+action_delay_s = 0.3
+
+[[lfdd.stages]]
+hz = 48.80
+mw = 931                  # observed stage-1 block (design 5 % = 1,450)
+
+[[lfdd.stages]]
+hz = 48.75
+mw = 1450                 # 5.0 % of 29 GW
+
+[[lfdd.stages]]
+hz = 48.70
+mw = 2900                 # 10.0 %
+
+[[lfdd.stages]]
+hz = 48.60
+mw = 2175                 # 7.5 %
+
+[[lfdd.stages]]
+hz = 48.50
+mw = 2175                 # 7.5 %
+
+[[lfdd.stages]]
+hz = 48.40
+mw = 2175                 # 7.5 %
+
+[[lfdd.stages]]
+hz = 48.20
+mw = 2175                 # 7.5 %
+
+[[lfdd.stages]]
+hz = 48.00
+mw = 1450                 # 5.0 %
+
+[[lfdd.stages]]
+hz = 47.80
+mw = 1450                 # 5.0 %
+
+# --- Era-dependent operating limits (2019 values — scenario inputs,
+# --- not constants; reporting only). ---
+
+[limits]
+rocof_relay_hz_per_s = 0.125   # legacy loss-of-mains setting, ~2 GW
+statutory_floor_hz = 49.5
+
+# --- The pinned RoCoF measurement window (reference record
+# --- [frequency.rocof_measured]: windows start at the 16:52:34 BST
+# --- sample = 0.51 s after the fault; T3 uses the 2-s mean). ---
+
+[rocof_window]
+start_s = 0.51
+duration_s = 2.0

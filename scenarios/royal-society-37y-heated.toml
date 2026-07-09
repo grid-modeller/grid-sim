@@ -1,0 +1,263 @@
+# Royal-Society-style 37+-year scenario WITH the D9 electrified-heating
+# overlay (Q5/Q11 analysis runs; docs/notes/d9-heating-overlay.md rules
+# 6/6b). Identical to scenarios/royal-society-37y.toml in fleet, demand
+# tiling, horizon and store, plus the [zones.demand.heating] portfolio
+# below -- the D9 0.70 ASHP / 0.20 GSHP / 0.10 district mix at the
+# reviewed quantum (410.5 TWh record-mean delivered heat, GB;
+# electrified_share 0.5; DHW fraction 0.170). A plain `run`/`solve` on
+# this file reproduces the pinned characterisation point
+# (grid-adequacy/tests/heating.rs); `grid-cli sweep heating-mix` uses
+# this file as the TEMPLATE and replaces only the entry shares over the
+# simplex.
+#
+# STORE-RATING WARNING (binding record,
+# docs/notes/q5-heating-engine-review.md): the committed 100 GW rating
+# below was chosen so the ENERGY requirement binds the solve -- that
+# claim is FALSE under this heating block. The heated peak residual
+# (113.4 GW at the D9 mix; 115.7 GW all-ASHP) exceeds 100 GW, and
+# the heated solve at 100 GW is POWER-BOUND INFEASIBLE (pinned as the
+# first finding). Analysis runs therefore solve at a STATED rating
+# (200 GW) applied to BOTH endpoints of every delta, and every storage
+# number is quoted "at 200 GW store power, both endpoints" with the
+# 100 GW infeasibility finding travelling with it. SolveInfeasible at a
+# committed rating is a reportable result, never silently bumped.
+#
+# Standing caveats on every number from this file (D9 rule 6): no
+# within-day behavioural heating profile (portfolio deltas are LOWER
+# BOUNDS); 2024 non-heat demand tiled over the record; climate-
+# stationary heat intensity k (fixed building stock in every weather
+# year). Original fleet/demand/store rationale: see
+# scenarios/royal-society-37y.toml (unchanged here).
+
+schema_version = 8   # v8: version line only (no heating resource_depth_m set; docs/03 migration)
+name = "royal-society-37y-heated"
+description = "The RS-style 37+-year fleet plus the D9 electrified-heating portfolio (410.5 TWh x 0.5 electrified; 0.70/0.20/0.10 ASHP/GSHP/district): the Q5/Q11 heating analysis scenario (D9 rules 6/6b)"
+
+[horizon]
+start = "1985-01-01T00:00:00Z"   # 701,280 half-hourly periods
+end   = "2024-12-31T23:30:00Z"
+weather_years = "all"
+
+[[zones]]
+id = "GB"
+
+[zones.demand]
+# 2024 profile tiled over 1985-2024 (concurrent data package).
+annual_scale = 2.177             # 261.83 TWh x 2.177 = 570.00 TWh (see header)
+column = "underlying_demand"     # D3 total-generation convention
+base_profile = [
+  "data/packs/demand-tiled/demand_1985.parquet",
+  "data/packs/demand-tiled/demand_1986.parquet",
+  "data/packs/demand-tiled/demand_1987.parquet",
+  "data/packs/demand-tiled/demand_1988.parquet",
+  "data/packs/demand-tiled/demand_1989.parquet",
+  "data/packs/demand-tiled/demand_1990.parquet",
+  "data/packs/demand-tiled/demand_1991.parquet",
+  "data/packs/demand-tiled/demand_1992.parquet",
+  "data/packs/demand-tiled/demand_1993.parquet",
+  "data/packs/demand-tiled/demand_1994.parquet",
+  "data/packs/demand-tiled/demand_1995.parquet",
+  "data/packs/demand-tiled/demand_1996.parquet",
+  "data/packs/demand-tiled/demand_1997.parquet",
+  "data/packs/demand-tiled/demand_1998.parquet",
+  "data/packs/demand-tiled/demand_1999.parquet",
+  "data/packs/demand-tiled/demand_2000.parquet",
+  "data/packs/demand-tiled/demand_2001.parquet",
+  "data/packs/demand-tiled/demand_2002.parquet",
+  "data/packs/demand-tiled/demand_2003.parquet",
+  "data/packs/demand-tiled/demand_2004.parquet",
+  "data/packs/demand-tiled/demand_2005.parquet",
+  "data/packs/demand-tiled/demand_2006.parquet",
+  "data/packs/demand-tiled/demand_2007.parquet",
+  "data/packs/demand-tiled/demand_2008.parquet",
+  "data/packs/demand-tiled/demand_2009.parquet",
+  "data/packs/demand-tiled/demand_2010.parquet",
+  "data/packs/demand-tiled/demand_2011.parquet",
+  "data/packs/demand-tiled/demand_2012.parquet",
+  "data/packs/demand-tiled/demand_2013.parquet",
+  "data/packs/demand-tiled/demand_2014.parquet",
+  "data/packs/demand-tiled/demand_2015.parquet",
+  "data/packs/demand-tiled/demand_2016.parquet",
+  "data/packs/demand-tiled/demand_2017.parquet",
+  "data/packs/demand-tiled/demand_2018.parquet",
+  "data/packs/demand-tiled/demand_2019.parquet",
+  "data/packs/demand-tiled/demand_2020.parquet",
+  "data/packs/demand-tiled/demand_2021.parquet",
+  "data/packs/demand-tiled/demand_2022.parquet",
+  "data/packs/demand-tiled/demand_2023.parquet",
+  "data/packs/demand-tiled/demand_2024.parquet",
+]
+
+[zones.demand.heating]              # D9 rule 2 (schema v5); reviewed data package values
+delivered_heat_twh = 410.5          # record-mean annual quantum (ECUK basis, cited in the data package)
+electrified_share = 0.5             # the D9 rule-2 illustrative electrification level
+dhw_fraction = 0.170                # reviewed DHW basis (fraction of delivered heat)
+temperature_trace = { path = "data/weather/gb_t2m_pop.parquet", column = "t2m_pop" }
+
+[[zones.demand.heating.entries]]
+kind = "ashp"                       # COP defaults: data/reference/heating-cop.toml (drift-guarded)
+share = 0.70
+
+[[zones.demand.heating.entries]]
+kind = "gshp"
+share = 0.20
+
+[[zones.demand.heating.entries]]
+kind = "district_geothermal"
+share = 0.10
+
+# --- Weather-driven fleet (must-take; per-year ERA5-derived CF traces,
+# --- pinned column `cf`) ---
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 240.0              # RS-comparable assumption (see header)
+capacity_factor_trace = [
+  "data/packs/cf/gb_offshore_cf_1985.parquet",
+  "data/packs/cf/gb_offshore_cf_1986.parquet",
+  "data/packs/cf/gb_offshore_cf_1987.parquet",
+  "data/packs/cf/gb_offshore_cf_1988.parquet",
+  "data/packs/cf/gb_offshore_cf_1989.parquet",
+  "data/packs/cf/gb_offshore_cf_1990.parquet",
+  "data/packs/cf/gb_offshore_cf_1991.parquet",
+  "data/packs/cf/gb_offshore_cf_1992.parquet",
+  "data/packs/cf/gb_offshore_cf_1993.parquet",
+  "data/packs/cf/gb_offshore_cf_1994.parquet",
+  "data/packs/cf/gb_offshore_cf_1995.parquet",
+  "data/packs/cf/gb_offshore_cf_1996.parquet",
+  "data/packs/cf/gb_offshore_cf_1997.parquet",
+  "data/packs/cf/gb_offshore_cf_1998.parquet",
+  "data/packs/cf/gb_offshore_cf_1999.parquet",
+  "data/packs/cf/gb_offshore_cf_2000.parquet",
+  "data/packs/cf/gb_offshore_cf_2001.parquet",
+  "data/packs/cf/gb_offshore_cf_2002.parquet",
+  "data/packs/cf/gb_offshore_cf_2003.parquet",
+  "data/packs/cf/gb_offshore_cf_2004.parquet",
+  "data/packs/cf/gb_offshore_cf_2005.parquet",
+  "data/packs/cf/gb_offshore_cf_2006.parquet",
+  "data/packs/cf/gb_offshore_cf_2007.parquet",
+  "data/packs/cf/gb_offshore_cf_2008.parquet",
+  "data/packs/cf/gb_offshore_cf_2009.parquet",
+  "data/packs/cf/gb_offshore_cf_2010.parquet",
+  "data/packs/cf/gb_offshore_cf_2011.parquet",
+  "data/packs/cf/gb_offshore_cf_2012.parquet",
+  "data/packs/cf/gb_offshore_cf_2013.parquet",
+  "data/packs/cf/gb_offshore_cf_2014.parquet",
+  "data/packs/cf/gb_offshore_cf_2015.parquet",
+  "data/packs/cf/gb_offshore_cf_2016.parquet",
+  "data/packs/cf/gb_offshore_cf_2017.parquet",
+  "data/packs/cf/gb_offshore_cf_2018.parquet",
+  "data/packs/cf/gb_offshore_cf_2019.parquet",
+  "data/packs/cf/gb_offshore_cf_2020.parquet",
+  "data/packs/cf/gb_offshore_cf_2021.parquet",
+  "data/packs/cf/gb_offshore_cf_2022.parquet",
+  "data/packs/cf/gb_offshore_cf_2023.parquet",
+  "data/packs/cf/gb_offshore_cf_2024.parquet",
+]
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 80.0               # RS-comparable assumption (see header)
+capacity_factor_trace = [
+  "data/packs/cf/gb_onshore_cf_1985.parquet",
+  "data/packs/cf/gb_onshore_cf_1986.parquet",
+  "data/packs/cf/gb_onshore_cf_1987.parquet",
+  "data/packs/cf/gb_onshore_cf_1988.parquet",
+  "data/packs/cf/gb_onshore_cf_1989.parquet",
+  "data/packs/cf/gb_onshore_cf_1990.parquet",
+  "data/packs/cf/gb_onshore_cf_1991.parquet",
+  "data/packs/cf/gb_onshore_cf_1992.parquet",
+  "data/packs/cf/gb_onshore_cf_1993.parquet",
+  "data/packs/cf/gb_onshore_cf_1994.parquet",
+  "data/packs/cf/gb_onshore_cf_1995.parquet",
+  "data/packs/cf/gb_onshore_cf_1996.parquet",
+  "data/packs/cf/gb_onshore_cf_1997.parquet",
+  "data/packs/cf/gb_onshore_cf_1998.parquet",
+  "data/packs/cf/gb_onshore_cf_1999.parquet",
+  "data/packs/cf/gb_onshore_cf_2000.parquet",
+  "data/packs/cf/gb_onshore_cf_2001.parquet",
+  "data/packs/cf/gb_onshore_cf_2002.parquet",
+  "data/packs/cf/gb_onshore_cf_2003.parquet",
+  "data/packs/cf/gb_onshore_cf_2004.parquet",
+  "data/packs/cf/gb_onshore_cf_2005.parquet",
+  "data/packs/cf/gb_onshore_cf_2006.parquet",
+  "data/packs/cf/gb_onshore_cf_2007.parquet",
+  "data/packs/cf/gb_onshore_cf_2008.parquet",
+  "data/packs/cf/gb_onshore_cf_2009.parquet",
+  "data/packs/cf/gb_onshore_cf_2010.parquet",
+  "data/packs/cf/gb_onshore_cf_2011.parquet",
+  "data/packs/cf/gb_onshore_cf_2012.parquet",
+  "data/packs/cf/gb_onshore_cf_2013.parquet",
+  "data/packs/cf/gb_onshore_cf_2014.parquet",
+  "data/packs/cf/gb_onshore_cf_2015.parquet",
+  "data/packs/cf/gb_onshore_cf_2016.parquet",
+  "data/packs/cf/gb_onshore_cf_2017.parquet",
+  "data/packs/cf/gb_onshore_cf_2018.parquet",
+  "data/packs/cf/gb_onshore_cf_2019.parquet",
+  "data/packs/cf/gb_onshore_cf_2020.parquet",
+  "data/packs/cf/gb_onshore_cf_2021.parquet",
+  "data/packs/cf/gb_onshore_cf_2022.parquet",
+  "data/packs/cf/gb_onshore_cf_2023.parquet",
+  "data/packs/cf/gb_onshore_cf_2024.parquet",
+]
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 200.0              # RS-comparable assumption (see header)
+capacity_factor_trace = [
+  "data/packs/cf/gb_solar_cf_1985.parquet",
+  "data/packs/cf/gb_solar_cf_1986.parquet",
+  "data/packs/cf/gb_solar_cf_1987.parquet",
+  "data/packs/cf/gb_solar_cf_1988.parquet",
+  "data/packs/cf/gb_solar_cf_1989.parquet",
+  "data/packs/cf/gb_solar_cf_1990.parquet",
+  "data/packs/cf/gb_solar_cf_1991.parquet",
+  "data/packs/cf/gb_solar_cf_1992.parquet",
+  "data/packs/cf/gb_solar_cf_1993.parquet",
+  "data/packs/cf/gb_solar_cf_1994.parquet",
+  "data/packs/cf/gb_solar_cf_1995.parquet",
+  "data/packs/cf/gb_solar_cf_1996.parquet",
+  "data/packs/cf/gb_solar_cf_1997.parquet",
+  "data/packs/cf/gb_solar_cf_1998.parquet",
+  "data/packs/cf/gb_solar_cf_1999.parquet",
+  "data/packs/cf/gb_solar_cf_2000.parquet",
+  "data/packs/cf/gb_solar_cf_2001.parquet",
+  "data/packs/cf/gb_solar_cf_2002.parquet",
+  "data/packs/cf/gb_solar_cf_2003.parquet",
+  "data/packs/cf/gb_solar_cf_2004.parquet",
+  "data/packs/cf/gb_solar_cf_2005.parquet",
+  "data/packs/cf/gb_solar_cf_2006.parquet",
+  "data/packs/cf/gb_solar_cf_2007.parquet",
+  "data/packs/cf/gb_solar_cf_2008.parquet",
+  "data/packs/cf/gb_solar_cf_2009.parquet",
+  "data/packs/cf/gb_solar_cf_2010.parquet",
+  "data/packs/cf/gb_solar_cf_2011.parquet",
+  "data/packs/cf/gb_solar_cf_2012.parquet",
+  "data/packs/cf/gb_solar_cf_2013.parquet",
+  "data/packs/cf/gb_solar_cf_2014.parquet",
+  "data/packs/cf/gb_solar_cf_2015.parquet",
+  "data/packs/cf/gb_solar_cf_2016.parquet",
+  "data/packs/cf/gb_solar_cf_2017.parquet",
+  "data/packs/cf/gb_solar_cf_2018.parquet",
+  "data/packs/cf/gb_solar_cf_2019.parquet",
+  "data/packs/cf/gb_solar_cf_2020.parquet",
+  "data/packs/cf/gb_solar_cf_2021.parquet",
+  "data/packs/cf/gb_solar_cf_2022.parquet",
+  "data/packs/cf/gb_solar_cf_2023.parquet",
+  "data/packs/cf/gb_solar_cf_2024.parquet",
+]
+
+# --- The hydrogen store (the solve's designated store) ---
+
+[[zones.storage]]
+kind = "hydrogen"
+power_gw = 100.0                 # generous symmetric rating (flagged; see header)
+energy_gwh = 100000.0            # 100 TWh fixed-run value; `solve` sizes this
+round_trip_efficiency = 0.40     # ~0.74 electrolysis x ~0.54 reconversion (see header)
+dispatch_order = 1
+
+[dispatch]
+policy = "rule_based"            # D4; the LP comparison arrives in Stage 7
+
+[solver]
+mode = "min_storage_for_zero_unserved"

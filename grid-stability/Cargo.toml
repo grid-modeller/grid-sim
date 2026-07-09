@@ -1,0 +1,26 @@
+[package]
+name = "grid-stability"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "grid-sim system stability engine: inertia aggregation + swing-equation event simulation (Stage 6)"
+
+[dependencies]
+# Shared domain model (ADR-1): units, scenario schema, inertia metadata.
+grid-core = { workspace = true }
+# Stability consumes adequacy dispatch output (ADR-2): RunResult is the
+# dispatch-snapshot input to the inertia aggregation.
+grid-adequacy = { workspace = true }
+# Event-spec TOML parsing (same strict-serde pattern as the scenario).
+serde = { workspace = true }
+toml = { workspace = true }
+
+[lints]
+workspace = true
+
+# docs/06 benchmark smoke tests (plain-timing harness, no framework).
+[[bench]]
+name = "stage6"
+harness = false

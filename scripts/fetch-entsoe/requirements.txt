@@ -1,0 +1,9 @@
+# Pinned environment for the ENTSO-E Stage 5 pack (venv pattern per
+# scripts/era5-cf precedent; versions match the era5 venv where shared).
+# Parquet bytes (hence the committed manifest) are conditional on these
+# exact versions — rebuild the venv from this file before any re-fetch
+# expected to reproduce data/packs/entsoe-2024.sha256.
+# Working venv: ~/.local/share/grid-sim/entsoe-venv (Python 3.13.11).
+requests==2.34.2
+pandas==3.0.3
+pyarrow==24.0.0

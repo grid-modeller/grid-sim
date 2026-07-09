@@ -1,0 +1,1318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>grid-sim run viewer</title>
+<style>
+  /* ------------------------------------------------------------------ */
+  /* grid-sim run viewer — read-only display of engine outputs (ADR-11) */
+  /* ------------------------------------------------------------------ */
+  :root {
+    --surface: #fcfcfb;
+    --panel: #f4f3f0;
+    --ink: #1c1c20;
+    --ink-2: #55555c;
+    --ink-3: #8a8a90;
+    --line: #e4e2dd;
+    --accent: #2e6fce;
+    --bad: #e8112d;
+    --warn-bg: #fdf3d7;
+    --warn-ink: #7a5c00;
+    --err-bg: #fbe4e7;
+    --err-ink: #8f0f22;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--surface); color: var(--ink);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { padding: 18px 22px 40px; max-width: 1400px; margin: 0 auto; }
+
+  header.top { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  header.top h1 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
+  header.top .sub { color: var(--ink-3); font-size: 13px; }
+
+  /* --- load zone ---------------------------------------------------- */
+  #dropzone {
+    margin-top: 14px; border: 1.5px dashed #c9c6bf; border-radius: 10px;
+    padding: 18px 20px; background: var(--panel); cursor: pointer;
+    transition: border-color .12s, background .12s;
+  }
+  #dropzone.dragover { border-color: var(--accent); background: #eef3fb; }
+  #dropzone .big { font-weight: 600; }
+  #dropzone .hint { color: var(--ink-2); font-size: 13px; margin-top: 3px; }
+  #dropzone.compact { padding: 8px 14px; display: flex; gap: 14px; align-items: baseline; }
+  #dropzone.compact .hint { margin-top: 0; }
+  #fileinput { display: none; }
+
+  #errors { margin-top: 10px; display: none; }
+  #errors .err { background: var(--err-bg); color: var(--err-ink); border: 1px solid #f0b9c0;
+    border-radius: 8px; padding: 8px 12px; margin-top: 6px; font-size: 13px;
+    display: flex; justify-content: space-between; gap: 10px; }
+  #errors .err button { background: none; border: none; color: inherit; cursor: pointer;
+    font-size: 13px; text-decoration: underline; }
+  #warnings { margin-top: 10px; display: none; }
+  #warnings .warn { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid #e8d48a;
+    border-radius: 8px; padding: 8px 12px; margin-top: 6px; font-size: 13px; }
+
+  /* --- provenance --------------------------------------------------- */
+  #prov { display: none; margin-top: 14px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+  #prov h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--ink-3); font-weight: 600; margin-bottom: 8px; }
+  #prov .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 4px 26px; }
+  #prov .kv { display: flex; gap: 8px; font-size: 12.5px; min-width: 0; }
+  #prov .kv .k { color: var(--ink-3); white-space: nowrap; }
+  #prov .kv .v { font-family: var(--mono); font-size: 12px; color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #prov .badges { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { font-size: 12px; border-radius: 999px; padding: 2px 10px; border: 1px solid var(--line);
+    background: #fff; color: var(--ink-2); }
+  .badge.bad { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 650; }
+  .badge.ok { background: #e8f2e9; border-color: #bcd8bf; color: #2c5f33; }
+
+  /* --- legend -------------------------------------------------------- */
+  #legend { display: none; margin-top: 14px; gap: 6px 14px; flex-wrap: wrap; align-items: center; }
+  #legend.on { display: flex; }
+  #legend .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;
+    color: var(--ink-2); }
+  #legend .sw { width: 13px; height: 13px; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); }
+  #legend .sw.line { height: 3px; border-radius: 2px; border: none; }
+
+  /* --- charts -------------------------------------------------------- */
+  #charts { display: none; margin-top: 10px; }
+  .chartbox { position: relative; }
+  .chartbox canvas { display: block; width: 100%; cursor: crosshair; touch-action: none; }
+  .chartbox canvas.panning { cursor: grabbing; }
+  .striptitle { font-size: 12px; color: var(--ink-3); margin: 10px 0 2px 2px;
+    text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+  .striptitle .note { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  #statusbar { margin-top: 6px; display: flex; gap: 18px; font-size: 12.5px; color: var(--ink-2);
+    flex-wrap: wrap; align-items: baseline; }
+  #aggmode { font-weight: 650; color: var(--ink); }
+  #statusbar .keys { color: var(--ink-3); }
+  #resetzoom { border: 1px solid var(--line); background: #fff; border-radius: 6px;
+    padding: 2px 10px; font-size: 12px; cursor: pointer; color: var(--ink-2); }
+  #resetzoom:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* --- tooltip ------------------------------------------------------- */
+  #tooltip { position: fixed; display: none; pointer-events: none; z-index: 10;
+    background: rgba(255,255,255,.97); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(20,20,20,.13); padding: 8px 11px; font-size: 12px; min-width: 190px; }
+  #tooltip .tt-time { font-weight: 650; margin-bottom: 5px; font-size: 12px; }
+  #tooltip .tt-mode { color: var(--ink-3); font-weight: 400; }
+  #tooltip table { border-collapse: collapse; width: 100%; }
+  #tooltip td { padding: 1px 0; color: var(--ink-2); }
+  #tooltip td.num { text-align: right; font-family: var(--mono); font-size: 11.5px;
+    color: var(--ink); padding-left: 14px; }
+  #tooltip .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px;
+    margin-right: 6px; vertical-align: baseline; border: 1px solid rgba(0,0,0,.12); }
+  #tooltip tr.total td { border-top: 1px solid var(--line); padding-top: 3px; font-weight: 600;
+    color: var(--ink); }
+
+  footer { margin-top: 26px; font-size: 12px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>grid-sim run viewer</h1>
+  <span class="sub">read-only display of engine outputs &mdash; computes nothing the engine didn't (ADR-11)</span>
+</header>
+
+<div id="dropzone" title="Click to choose files, or drag and drop">
+  <div class="big">Drop run output files here (or click to browse)</div>
+  <div class="hint">dispatch.csv (required) &middot; summary.toml &middot; prices.csv &middot; monthly_mix.csv &mdash; e.g. from
+    <span style="font-family:var(--mono)">runs/gb-2024-reference/</span>. Files load locally; nothing leaves this page.</div>
+</div>
+<input id="fileinput" type="file" multiple accept=".csv,.toml,.txt">
+
+<div id="errors"></div>
+<div id="warnings"></div>
+
+<section id="prov">
+  <h2>Run provenance</h2>
+  <div class="grid" id="provgrid"></div>
+  <div class="badges" id="provbadges"></div>
+</section>
+
+<div id="legend"></div>
+
+<div id="charts">
+  <div id="box-main">
+  <div class="striptitle">Dispatch stack <span class="note">&mdash; generation GW by technology, demand line, UTC</span></div>
+  <div class="chartbox"><canvas id="c-main" data-h="380"></canvas></div>
+  </div>
+
+  <div id="box-residual" style="display:none">
+    <div class="striptitle">Deficit / surplus <span class="note" id="residual-note"></span></div>
+    <div class="chartbox"><canvas id="c-residual" data-h="90"></canvas></div>
+  </div>
+
+  <div id="box-price" style="display:none">
+    <div class="striptitle">System price <span class="note">&mdash; SMP &pound;/MWh; base band = price-setter (daily mode: fraction of day); shading = zero-price, no price-setter (must-take only)</span></div>
+    <div class="chartbox"><canvas id="c-price" data-h="130"></canvas></div>
+  </div>
+
+  <div id="box-rel" style="display:none">
+    <div class="striptitle">Reliability &mdash; firm share of supply <span class="note" id="rel-note"></span></div>
+    <div class="chartbox"><canvas id="c-rel" data-h="120"></canvas></div>
+  </div>
+
+  <div id="box-soc" style="display:none">
+    <div class="striptitle">Storage state of charge <span class="note">&mdash; GWh (engine-emitted <span style="font-family:var(--mono)">*_soc_gwh</span> columns)</span></div>
+    <div class="chartbox"><canvas id="c-soc" data-h="110"></canvas></div>
+  </div>
+
+  <div id="box-monthly" style="display:none">
+    <div class="striptitle">Monthly mix <span class="note">&mdash; per-calendar-month energy (GWh), engine validation ledger; see <span style="font-family:var(--mono)">grid-cli plot monthly-mix</span>. Not zoom-linked.</span></div>
+    <div class="chartbox"><canvas id="c-monthly" data-h="200"></canvas></div>
+  </div>
+
+  <div id="statusbar">
+    <span id="aggmode"></span>
+    <span id="viewspan"></span>
+    <button id="resetzoom">Reset zoom</button>
+    <span class="keys">scroll = zoom &middot; drag = pan &middot; double-click = full year</span>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+
+<footer>
+  grid-sim run viewer &mdash; prototype view layer for the phase-2 sandbox. The engine output schema is the UI contract.
+  All values shown are engine-emitted; the only transformation applied is labelled display aggregation (daily means).
+</footer>
+
+<script>
+'use strict';
+/* =====================================================================
+   grid-sim run viewer.
+   Guardrail (ADR-11): this file renders engine outputs verbatim. The one
+   transformation permitted is *display aggregation* (daily means of the
+   emitted half-hourly values when zoomed out), which is always labelled.
+   No dispatch, pricing, residual or storage logic lives here.
+   ===================================================================== */
+
+/* ---------- fixed semantic palette (validated for adjacent-pair CVD) -- */
+const SURFACE = '#fcfcfb';
+const COLOR_RULES = [            // first match wins; matched on column name
+  [/nuclear/,               '#4a3a78'],
+  [/biomass/,               '#6d8f3d'],
+  [/pumped_hydro|battery/,  '#d1479c'],  // storage units — before /hydro/ so pumped_hydro_* reads as storage
+  [/hydro/,                 '#6db9e8'],
+  [/coal/,                  '#46403a'],
+  [/ccgt/,                  '#97836b'],
+  [/ocgt/,                  '#6e5744'],
+  [/gas/,                   '#97836b'],
+  [/offshore/,              '#0e8577'],
+  [/onshore/,               '#59b25f'],
+  [/wind/,                  '#0e8577'],
+  [/solar|pv/,              '#f4c430'],
+  [/import|interconn/,      '#2e6fce'],
+  [/pumped|storage|battery|discharge/, '#d1479c'],
+  [/other/,                 '#a8a29a'],
+  [/unserved/,              '#e8112d'],   // used by the monthly-mix panel; dispatch treats unserved specially
+  [/curtail/,               '#8a8578'],
+];
+// Engine-emitted AGGREGATE columns (sums of per-technology columns) — parsed
+// and surfaced in the tooltip / reliability strip, but excluded from stacking
+// so supply is never double-counted. The naming convention is the documented
+// contract; findTotalColumns() below additionally catches any column that
+// numerically duplicates the sum of the others (e.g. a future total_gw).
+const AGGREGATE_RE = /^(firm_supply|variable_supply|storage_discharge|total_supply|total_generation)_gw(h)?$/;
+// unknown future columns get these, assigned once in column order (never cycled)
+const FALLBACK_COLORS = ['#5b8def', '#c78f2d', '#7a9e9f', '#9d7ab8', '#4f7f52', '#b0685c'];
+const COLOR_UNSERVED = '#e8112d';
+const COLOR_CURTAIL  = '#8a8578';
+const COLOR_DEMAND   = '#16161a';
+const COLOR_PRICE    = '#b3552e';
+const COLOR_SURPLUS  = '#0e8577';
+const COLOR_DEFICIT  = '#d13438';
+const SOC_COLORS     = ['#8a63d2', '#d1479c', '#2e6fce', '#4f7f52'];
+
+/* Reliability ramp (gridmargin convention): OKLab traffic-light interpolation,
+   green #1b6e45 at firm share >= 0.65, amber #e6a019 midway, red #d61231 at
+   <= 0.40; alarm threshold 0.5. Pure display of the engine-emitted ratio. */
+const RAMP_GREEN_AT = 0.65, RAMP_RED_AT = 0.40, RAMP_ALARM = 0.5;
+function srgbToLin(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+function linToSrgb(c) { return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055; }
+function hexToOklab(hex) {
+  const r = srgbToLin(parseInt(hex.slice(1, 3), 16) / 255),
+        g = srgbToLin(parseInt(hex.slice(3, 5), 16) / 255),
+        b = srgbToLin(parseInt(hex.slice(5, 7), 16) / 255);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b),
+        m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b),
+        s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+          1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+          0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s];
+}
+function oklabToRgbStr(L, a, b) {
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3,
+        m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3,
+        s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+  const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        bb = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+  const cl = c => Math.round(255 * Math.min(1, Math.max(0, linToSrgb(c))));
+  return `rgb(${cl(r)},${cl(g)},${cl(bb)})`;
+}
+const RAMP_LAB = ['#1b6e45', '#e6a019', '#d61231'].map(hexToOklab);
+const rampCache = new Map();
+function rampColor(v) {
+  let t = (RAMP_GREEN_AT - v) / (RAMP_GREEN_AT - RAMP_RED_AT);   // 0 = green, 1 = red
+  t = Math.min(1, Math.max(0, t));
+  const key = Math.round(t * 100);
+  if (rampCache.has(key)) return rampCache.get(key);
+  const [A, B, f] = t < 0.5 ? [RAMP_LAB[0], RAMP_LAB[1], t * 2] : [RAMP_LAB[1], RAMP_LAB[2], (t - 0.5) * 2];
+  const c = oklabToRgbStr(A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f, A[2] + (B[2] - A[2]) * f);
+  rampCache.set(key, c);
+  return c;
+}
+
+// bottom-to-top stack order; unmatched columns slot in at weight 50
+const ORDER_RULES = [
+  [/nuclear/, 0], [/biomass/, 1], [/pumped_hydro|battery/, 21], [/hydro/, 2], [/other/, 3], [/coal/, 4],
+  [/ccgt/, 5], [/ocgt/, 6], [/gas/, 7], [/onshore/, 10], [/offshore/, 11],
+  [/wind/, 12], [/solar|pv/, 13], [/import|interconn/, 20],
+  [/pumped|storage|battery/, 21],
+];
+
+const HH_MS = 30 * 60 * 1000;         // half-hour, ms
+const DAY_MS = 86400000;
+const AGG_THRESHOLD = 3000;           // visible half-hours above which we show daily means
+const MIN_SPAN_MS = 6 * 3600 * 1000;  // deepest zoom: 6 hours
+
+/* ---------- state ----------------------------------------------------- */
+const S = {
+  dispatch: null,   // {meta, times, cols:{name:Float64Array}, stack:[{name,color}], demand, unserved, curtail, soc:[], residual:[], aggregates:[], shares:[], daily}
+  prices: null,     // {meta, times, cols, priceCol, daily}
+  monthly: null,    // monthly_mix.csv — {meta, times, cols, stack, demand}
+  summary: null,    // {pairs:[{section,key,value}], map:{}}
+  view: null,       // {t0,t1}
+  full: null,       // {t0,t1}
+  hoverT: null,
+  fallbackIdx: 0,
+};
+
+/* ---------- small utilities ------------------------------------------- */
+const $ = id => document.getElementById(id);
+const fmtNum = (v, dp = 2) => Number.isFinite(v) ? v.toLocaleString('en-GB', { minimumFractionDigits: dp, maximumFractionDigits: dp }) : '–';
+const shortHash = h => (h || '').replace(/-dirty$/, '').slice(0, 12) + (/-dirty$/.test(h || '') ? '…dirty' : '');
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtUTC(ms, withTime) {
+  const d = new Date(ms);
+  const date = `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  if (!withTime) return date;
+  const hh = String(d.getUTCHours()).padStart(2, '0'), mm = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${date} ${hh}:${mm} UTC`;
+}
+function prettyName(col) {
+  return col.replace(/_(gw|gwh|gbp_per_mwh)$/, '').replace(/_/g, ' ')
+            .replace(/\b(ccgt|ocgt|smp|srmc)\b/g, s => s.toUpperCase());
+}
+function colorFor(name) {
+  for (const [re, c] of COLOR_RULES) if (re.test(name)) return c;
+  const c = FALLBACK_COLORS[Math.min(S.fallbackIdx, FALLBACK_COLORS.length - 1)];
+  S.fallbackIdx++;
+  return c;
+}
+function orderFor(name) {
+  for (const [re, w] of ORDER_RULES) if (re.test(name)) return w;
+  return 50;
+}
+function showError(msg) {
+  const box = $('errors'); box.style.display = 'block';
+  const div = document.createElement('div'); div.className = 'err';
+  const span = document.createElement('span'); span.textContent = msg;
+  const btn = document.createElement('button'); btn.textContent = 'dismiss';
+  btn.onclick = () => { div.remove(); if (!box.children.length) box.style.display = 'none'; };
+  div.append(span, btn); box.append(div);
+}
+function setWarnings(list) {
+  const box = $('warnings'); box.textContent = '';
+  box.style.display = list.length ? 'block' : 'none';
+  for (const w of list) {
+    const d = document.createElement('div'); d.className = 'warn'; d.textContent = w; box.append(d);
+  }
+}
+
+/* ---------- parsers ---------------------------------------------------- */
+// CSV with '#'-prefixed metadata header lines, then a header row, then data.
+function parseRunCsv(text, filename) {
+  const lines = text.split(/\r?\n/);
+  const meta = {}, dataFiles = [];
+  let i = 0;
+  for (; i < lines.length; i++) {
+    const ln = lines[i];
+    if (ln.startsWith('#')) {
+      const body = ln.replace(/^#\s?/, '');
+      let m = body.match(/^data_file\s+(\S+)\s+sha256=(\S+)/);
+      if (m) { dataFiles.push({ path: m[1], sha256: m[2] }); continue; }
+      m = body.match(/^(\S+)\s*=\s*(.+)$/);
+      if (m) meta[m[1]] = m[2].trim();
+      continue;
+    }
+    if (ln.trim() !== '') break;   // header row reached
+  }
+  if (i >= lines.length) throw new Error(`${filename}: no header row found after metadata lines`);
+  const header = lines[i].split(',').map(s => s.trim());
+  if (header.length < 2) throw new Error(`${filename}: header row has ${header.length} column(s); expected a CSV header`);
+  const timeIdx = header.indexOf('utc_start') !== -1 ? header.indexOf('utc_start') : 0;
+
+  const nGuess = lines.length - i - 1;
+  const times = new Float64Array(nGuess);
+  // decide numeric vs string per column from the first data row
+  const firstData = lines[i + 1];
+  if (firstData === undefined || firstData.trim() === '')
+    throw new Error(`${filename}: no data rows after header`);
+  const probe = firstData.split(',');
+  if (probe.length !== header.length)
+    throw new Error(`${filename}: first data row has ${probe.length} fields, header has ${header.length}`);
+  const numeric = header.map((_, c) => c !== timeIdx && probe[c] !== '' && Number.isFinite(+probe[c]));
+  const cols = {}, strCols = {};
+  header.forEach((h, c) => { if (c === timeIdx) return; if (numeric[c]) cols[h] = new Float64Array(nGuess); else strCols[h] = []; });
+
+  let n = 0;
+  for (let r = i + 1; r < lines.length; r++) {
+    const ln = lines[r];
+    if (ln === '' || ln === '\r') continue;
+    const f = ln.split(',');
+    if (f.length !== header.length)
+      throw new Error(`${filename}: row ${r + 1} has ${f.length} fields, expected ${header.length}`);
+    const t = Date.parse(f[timeIdx]);
+    if (!Number.isFinite(t))
+      throw new Error(`${filename}: row ${r + 1}: unparseable timestamp "${f[timeIdx]}"`);
+    times[n] = t;
+    for (let c = 0; c < header.length; c++) {
+      if (c === timeIdx) continue;
+      const h = header[c];
+      if (numeric[c]) {
+        const v = +f[c];
+        if (!Number.isFinite(v)) throw new Error(`${filename}: row ${r + 1}, column "${h}": non-numeric value "${f[c]}"`);
+        cols[h][n] = v;
+      } else strCols[h].push(f[c]);
+    }
+    n++;
+  }
+  if (n === 0) throw new Error(`${filename}: no data rows`);
+  const timesT = times.subarray(0, n);
+  for (const k in cols) cols[k] = cols[k].subarray(0, n);
+  return { meta, dataFiles, header, times: timesT, cols, strCols, n, filename };
+}
+
+// Lenient TOML: sections, key = value. Enough for summary.toml display.
+function parseTomlLenient(text, filename) {
+  const pairs = [], map = {};
+  let section = '';
+  for (const raw of text.split(/\r?\n/)) {
+    const ln = raw.trim();
+    if (ln === '' || ln.startsWith('#')) continue;
+    let m = ln.match(/^\[(.+)\]$/);
+    if (m) { section = m[1]; continue; }
+    m = ln.match(/^("?)(.+?)\1\s*=\s*(.+)$/);
+    if (m) {
+      const key = m[2], val = m[3].replace(/^"(.*)"$/, '$1');
+      pairs.push({ section, key, value: val });
+      map[(section ? section + '.' : '') + key] = val;
+    }
+  }
+  if (!pairs.length) throw new Error(`${filename}: no key = value pairs found (is this a TOML file?)`);
+  return { pairs, map, filename };
+}
+
+/* ---------- display aggregation (the only transformation; labelled) ---- */
+function aggregateDaily(times, cols) {
+  const n = times.length;
+  if (!n) return null;
+  const day0 = Math.floor(times[0] / DAY_MS);
+  const nd = Math.floor(times[n - 1] / DAY_MS) - day0 + 1;
+  const outT = new Float64Array(nd), counts = new Float64Array(nd);
+  const mean = {}, max = {}, min = {};
+  for (const k in cols) { mean[k] = new Float64Array(nd); max[k] = new Float64Array(nd).fill(-Infinity); min[k] = new Float64Array(nd).fill(Infinity); }
+  for (let i = 0; i < n; i++) {
+    const d = Math.floor(times[i] / DAY_MS) - day0;
+    counts[d]++;
+    for (const k in cols) {
+      const v = cols[k][i];
+      mean[k][d] += v;
+      if (v > max[k][d]) max[k][d] = v;
+      if (v < min[k][d]) min[k][d] = v;
+    }
+  }
+  for (let d = 0; d < nd; d++) {
+    outT[d] = (day0 + d) * DAY_MS + DAY_MS / 2;   // plot at midday UTC
+    if (counts[d] > 0) for (const k in cols) mean[k][d] /= counts[d];
+  }
+  return { times: outT, mean, max, min, n: nd };
+}
+
+/* ---------- column classification (dynamic discovery) ------------------ */
+// Sanity rule backing the aggregate convention: a candidate column whose
+// values equal the sum of all the other candidates (checked on ~23 sampled
+// rows, tolerance 0.1% / 10 MW) is a total the naming convention missed.
+// Display-level structure check only — no model knowledge involved.
+function findTotalColumns(parsed, candidates) {
+  const out = [];
+  if (candidates.length < 3) return out;
+  const n = parsed.n, step = Math.max(1, Math.floor(n / 23));
+  for (const c of candidates) {
+    let isTotal = true;
+    for (let i = 0; i < n && isTotal; i += step) {
+      let sum = 0;
+      for (const o of candidates) if (o !== c) sum += parsed.cols[o][i];
+      if (Math.abs(parsed.cols[c][i] - sum) > Math.max(0.01, 0.001 * Math.abs(sum))) isTotal = false;
+    }
+    if (isTotal) out.push(c);
+  }
+  return out;
+}
+function classifyDispatch(parsed) {
+  const stack = [];
+  let demand = null, unserved = null, curtail = null;
+  const soc = [], residual = [], aggregates = [], shares = [], candidates = [];
+  S.fallbackIdx = 0;
+  for (const name of parsed.header) {
+    if (!(name in parsed.cols)) continue;            // time or string column
+    if (/^demand/.test(name)) { demand = name; continue; }
+    if (/^unserved/.test(name)) { unserved = name; continue; }
+    if (/^curtail/.test(name)) { curtail = name; continue; }
+    if (/_soc_gwh$/.test(name)) { soc.push(name); continue; }
+    if (/_share$|_ratio$/.test(name)) { shares.push(name); continue; }
+    if (/(residual|surplus|deficit)/.test(name)) { residual.push(name); continue; }
+    if (AGGREGATE_RE.test(name)) { aggregates.push(name); continue; }
+    if (!/_gw$/.test(name)) continue;                // dimensionless/unknown: parsed, never stacked
+    candidates.push(name);
+  }
+  for (const dup of findTotalColumns(parsed, candidates)) {
+    aggregates.push(dup);
+    candidates.splice(candidates.indexOf(dup), 1);
+  }
+  for (const name of candidates) stack.push({ name, color: colorFor(name), order: orderFor(name) });
+  stack.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  return { ...parsed, stack, demand, unserved, curtail, soc, residual, aggregates, shares,
+           daily: aggregateDaily(parsed.times, parsed.cols) };
+}
+// monthly_mix.csv: 12 calendar-month rows of *_gwh energy totals — the
+// engine's validation ledger, rendered as a static stacked-bar panel.
+function classifyMonthly(parsed) {
+  const stack = []; let demand = null;
+  const candidates = [];
+  S.fallbackIdx = 0;
+  for (const name of parsed.header) {
+    if (!(name in parsed.cols)) continue;
+    if (/^demand/.test(name)) { demand = name; continue; }
+    if (!/_gwh$/.test(name) || AGGREGATE_RE.test(name)) continue;
+    candidates.push(name);
+  }
+  for (const dup of findTotalColumns(parsed, candidates)) candidates.splice(candidates.indexOf(dup), 1);
+  for (const name of candidates) stack.push({ name, color: colorFor(name), order: orderFor(name) });
+  stack.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  return { ...parsed, stack, demand };
+}
+function classifyPrices(parsed) {
+  let priceCol = null;
+  for (const name of parsed.header)
+    if (name in parsed.cols && /smp|price/.test(name) && !/setter|srmc/.test(name)) { priceCol = name; break; }
+  if (!priceCol) for (const name of parsed.header) if (name in parsed.cols) { priceCol = name; break; }
+  if (!priceCol) throw new Error(`${parsed.filename}: no numeric price column found`);
+  // price_setter (string column): which technology set the price each period;
+  // empty/none = must-take only. Setter names discovered from the data. The
+  // per-day fractions are display aggregation for the zoomed-out mode.
+  let setters = null;
+  const setterCol = parsed.header.find(h => (h in parsed.strCols) && /setter/.test(h));
+  if (setterCol) {
+    const raw = parsed.strCols[setterCol];
+    const names = [...new Set(raw.filter(s => s && s !== 'none'))].sort();
+    const day0 = Math.floor(parsed.times[0] / DAY_MS);
+    const nd = Math.floor(parsed.times[parsed.n - 1] / DAY_MS) - day0 + 1;
+    const counts = new Float64Array(nd);
+    const dayFrac = {};
+    for (const nm of names) dayFrac[nm] = new Float64Array(nd);
+    for (let i = 0; i < parsed.n; i++) {
+      const d = Math.floor(parsed.times[i] / DAY_MS) - day0;
+      counts[d]++;
+      if (raw[i] && dayFrac[raw[i]]) dayFrac[raw[i]][d]++;
+    }
+    for (let d = 0; d < nd; d++) if (counts[d]) for (const nm of names) dayFrac[nm][d] /= counts[d];
+    setters = { col: setterCol, names, colors: names.map(nm => colorFor(nm)), raw, dayFrac };
+  }
+  return { ...parsed, priceCol, setters, daily: aggregateDaily(parsed.times, parsed.cols) };
+}
+
+/* ---------- file intake ------------------------------------------------ */
+function routeFile(file) {
+  const name = file.name.toLowerCase();
+  file.text().then(text => {
+    try {
+      if (name.endsWith('.toml')) {
+        S.summary = parseTomlLenient(text, file.name);
+      } else if (name.endsWith('.csv') || name.endsWith('.txt')) {
+        const parsed = parseRunCsv(text, file.name);
+        const isMonthly = (parsed.header[0] === 'month' || /monthly_mix/.test(name)) && parsed.header.some(h => /_gwh$/.test(h));
+        const isPrices = parsed.header.some(h => /smp|price/.test(h));
+        const isDispatch = parsed.header.some(h => /_gw$/.test(h));
+        if (isMonthly) S.monthly = classifyMonthly(parsed);
+        else if (isPrices && !isDispatch) S.prices = classifyPrices(parsed);
+        else if (isDispatch) { S.dispatch = classifyDispatch(parsed); resetView(); }
+        else throw new Error(`${file.name}: recognised neither dispatch columns (*_gw), price columns (smp*), nor monthly_mix (month + *_gwh)`);
+      } else {
+        showError(`${file.name}: ignored (not .csv or .toml)`);
+        return;
+      }
+      refreshAll();
+    } catch (e) {
+      showError(e.message || String(e));
+    }
+  }).catch(e => showError(`${file.name}: ${e.message || e}`));
+}
+function resetView() {
+  if (!S.dispatch) return;
+  const t = S.dispatch.times;
+  S.full = { t0: t[0], t1: t[t.length - 1] + HH_MS };
+  S.view = { ...S.full };
+}
+
+/* ---------- provenance panel ------------------------------------------- */
+function renderProvenance() {
+  const grid = $('provgrid'), badges = $('provbadges');
+  grid.textContent = ''; badges.textContent = '';
+  const rows = [];
+  const meta = (S.dispatch && S.dispatch.meta) || {};
+  const sm = (S.summary && S.summary.map) || {};
+  const put = (k, v, title) => { if (v != null && v !== '') rows.push([k, v, title]); };
+
+  put('engine', shortHash(meta.engine_git_hash || sm['metadata.engine_git_hash']), meta.engine_git_hash || sm['metadata.engine_git_hash']);
+  put('schema', meta.schema_version || sm['metadata.schema_version']);
+  put('scenario', meta.scenario_path || sm['metadata.scenario_path']);
+  put('scenario sha256', (meta.scenario_sha256 || sm['metadata.scenario_sha256'] || '').slice(0, 12), meta.scenario_sha256 || sm['metadata.scenario_sha256']);
+  put('inputs sha256', (meta.run_inputs_sha256 || sm['metadata.run_inputs_sha256'] || '').slice(0, 12), meta.run_inputs_sha256 || sm['metadata.run_inputs_sha256']);
+  put('created', meta.created_utc || sm['metadata.created_utc']);
+  if (S.dispatch) put('data files', String(S.dispatch.dataFiles.length));
+  put('periods (summary)', sm['results.periods']);
+  put('demand TWh (summary)', sm['results.demand_twh'] && fmtNum(+sm['results.demand_twh']));
+  put('curtailment TWh (summary)', sm['results.curtailment_twh'] && fmtNum(+sm['results.curtailment_twh'], 4));
+  put('unserved TWh (summary)', sm['results.unserved_twh'] && fmtNum(+sm['results.unserved_twh'], 4));
+  put('result digest', (sm['results.result_digest_sha256'] || '').slice(0, 12), sm['results.result_digest_sha256']);
+
+  for (const [k, v, title] of rows) {
+    const kv = document.createElement('div'); kv.className = 'kv';
+    const kEl = document.createElement('span'); kEl.className = 'k'; kEl.textContent = k;
+    const vEl = document.createElement('span'); vEl.className = 'v'; vEl.textContent = v;
+    if (title) vEl.title = title;
+    kv.append(kEl, vEl); grid.append(kv);
+  }
+
+  // badges: loaded files, unserved prominence
+  const mkBadge = (txt, cls) => { const b = document.createElement('span'); b.className = 'badge' + (cls ? ' ' + cls : ''); b.textContent = txt; badges.append(b); };
+  if (S.dispatch) mkBadge(`dispatch: ${S.dispatch.n.toLocaleString('en-GB')} half-hours`);
+  if (S.prices) mkBadge(`prices: ${S.prices.n.toLocaleString('en-GB')} half-hours`);
+  if (S.monthly) mkBadge(`monthly_mix: ${S.monthly.n} months`);
+  if (S.summary) mkBadge('summary.toml loaded');
+  if (S.dispatch && S.dispatch.unserved) {
+    let cnt = 0; const u = S.dispatch.cols[S.dispatch.unserved];
+    for (let i = 0; i < u.length; i++) if (u[i] > 0) cnt++;
+    mkBadge(cnt > 0 ? `UNSERVED ENERGY: ${cnt} period${cnt === 1 ? '' : 's'}` : 'no unserved periods', cnt > 0 ? 'bad' : 'ok');
+  }
+  $('prov').style.display = rows.length || badges.children.length ? 'block' : 'none';
+
+  // cross-file consistency warnings (display-level check only)
+  const warns = [];
+  const hashes = new Set();
+  if (meta.engine_git_hash) hashes.add(meta.engine_git_hash);
+  if (S.prices && S.prices.meta.engine_git_hash) hashes.add(S.prices.meta.engine_git_hash);
+  if (sm['metadata.engine_git_hash']) hashes.add(sm['metadata.engine_git_hash']);
+  if (hashes.size > 1) warns.push(`Provenance mismatch: loaded files carry ${hashes.size} different engine_git_hash values — are these from the same run?`);
+  if (S.dispatch && sm['results.periods'] && +sm['results.periods'] !== S.dispatch.n)
+    warns.push(`summary.toml says ${sm['results.periods']} periods but dispatch.csv has ${S.dispatch.n}.`);
+  setWarnings(warns);
+}
+
+/* ---------- legend ------------------------------------------------------ */
+function renderLegend() {
+  const lg = $('legend'); lg.textContent = '';
+  if (!S.dispatch) { lg.classList.remove('on'); return; }
+  lg.classList.add('on');
+  const chip = (label, color, kind) => {
+    const c = document.createElement('span'); c.className = 'chip';
+    const sw = document.createElement('span'); sw.className = 'sw' + (kind === 'line' ? ' line' : '');
+    if (kind === 'hatch') {
+      sw.style.background = `repeating-linear-gradient(45deg, ${color}, ${color} 2px, #fff 2px, #fff 5px)`;
+    } else sw.style.background = color;
+    const t = document.createElement('span'); t.textContent = label;
+    c.append(sw, t); lg.append(c);
+  };
+  chip('demand', COLOR_DEMAND, 'line');
+  for (let i = S.dispatch.stack.length - 1; i >= 0; i--)   // top of stack first
+    chip(prettyName(S.dispatch.stack[i].name), S.dispatch.stack[i].color);
+  if (S.dispatch.unserved) chip('unserved', COLOR_UNSERVED);
+  if (S.dispatch.curtail) chip('curtailment (below axis)', COLOR_CURTAIL, 'hatch');
+  if (S.prices && S.prices.setters && S.prices.setters.names.length) {
+    S.prices.setters.names.forEach((nm, k) => chip('price set by ' + nm.toUpperCase(), S.prices.setters.colors[k]));
+    chip('no price-setter (must-take only, £0)', 'rgba(14,133,119,0.35)');
+  }
+}
+
+/* ---------- canvas plumbing --------------------------------------------- */
+const ML = 56, MR = 14, MT = 8, MB = 22;
+function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.parentElement.clientWidth;
+  const cssH = +canvas.dataset.h;   // design height; canvas.height (bitmap) must never feed back into layout
+  if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
+    canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
+    canvas.style.height = cssH + 'px';
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  return { ctx, W: cssW, H: cssH };
+}
+const xScale = (t, W) => ML + (t - S.view.t0) / (S.view.t1 - S.view.t0) * (W - ML - MR);
+const xInvert = (px, W) => S.view.t0 + (px - ML) / (W - ML - MR) * (S.view.t1 - S.view.t0);
+
+function bisect(times, t) {   // first index with times[i] >= t
+  let lo = 0, hi = times.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (times[mid] < t) lo = mid + 1; else hi = mid; }
+  return lo;
+}
+
+// choose raw half-hours or daily means for the current view — display only
+function viewSlice(ds) {
+  const rawI0 = Math.max(0, bisect(ds.times, S.view.t0) - 1);
+  const rawI1 = Math.min(ds.times.length, bisect(ds.times, S.view.t1) + 1);
+  if (rawI1 - rawI0 > AGG_THRESHOLD && ds.daily) {
+    const d = ds.daily;
+    const i0 = Math.max(0, bisect(d.times, S.view.t0) - 1);
+    const i1 = Math.min(d.times.length, bisect(d.times, S.view.t1) + 1);
+    return { mode: 'daily', times: d.times, cols: d.mean, max: d.max, min: d.min, i0, i1 };
+  }
+  return { mode: 'raw', times: ds.times, cols: ds.cols, max: null, min: null, i0: rawI0, i1: rawI1 };
+}
+
+function niceTicks(lo, hi, target = 5) {
+  const span = hi - lo || 1;
+  const step0 = span / target;
+  const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  let step = mag;
+  for (const m of [1, 2, 5, 10]) if (m * mag >= step0) { step = m * mag; break; }
+  const ticks = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step)
+    ticks.push(Math.abs(v) < step * 1e-6 ? 0 : v);   // avoid "-0" labels
+  return ticks;
+}
+
+function drawXAxis(ctx, W, H) {
+  const span = S.view.t1 - S.view.t0;
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const d0 = new Date(S.view.t0);
+  const marks = [];
+  if (span > 100 * DAY_MS) {                       // month boundaries
+    const d = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), 1));
+    while (d.getTime() < S.view.t1) {
+      marks.push({ t: d.getTime(), label: MONTHS[d.getUTCMonth()] + (d.getUTCMonth() === 0 ? ' ' + d.getUTCFullYear() : ''), major: true });
+      d.setUTCMonth(d.getUTCMonth() + 1);
+    }
+  } else if (span > 3 * DAY_MS) {                  // days, labelled sparsely; months darker
+    const stepDays = span > 40 * DAY_MS ? 7 : (span > 15 * DAY_MS ? 2 : 1);
+    const d = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), d0.getUTCDate()));
+    let k = 0;
+    while (d.getTime() < S.view.t1) {
+      const isMonth = d.getUTCDate() === 1;
+      marks.push({ t: d.getTime(), label: (k % stepDays === 0 || isMonth) ? `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}` : null, major: isMonth });
+      d.setUTCDate(d.getUTCDate() + 1); k++;
+    }
+  } else {                                          // hours
+    const stepH = span > 36 * 3600e3 ? 6 : (span > 12 * 3600e3 ? 3 : 1);
+    const d = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), d0.getUTCDate()));
+    while (d.getTime() < S.view.t1) {
+      const h = d.getUTCHours();
+      if (d.getTime() >= S.view.t0)
+        marks.push({ t: d.getTime(), label: h === 0 ? `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}` : (h % stepH === 0 ? String(h).padStart(2, '0') + ':00' : null), major: h === 0 });
+      d.setUTCHours(d.getUTCHours() + 1);
+    }
+  }
+  for (const m of marks) {
+    const x = xScale(m.t, W);
+    if (x < ML - 1 || x > W - MR + 1) continue;
+    ctx.strokeStyle = m.major ? '#d8d6d0' : '#ececea';
+    ctx.beginPath(); ctx.moveTo(x, MT); ctx.lineTo(x, H - MB); ctx.stroke();
+    if (m.label) { ctx.fillStyle = '#8a8a90'; ctx.fillText(m.label, x, H - MB + 5); }
+  }
+}
+function drawYAxis(ctx, W, H, yLo, yHi, yOf, unit) {
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (const v of niceTicks(yLo, yHi, (H > 200 ? 6 : 3))) {
+    const y = yOf(v);
+    ctx.strokeStyle = v === 0 ? '#b9b7b0' : '#ececea';
+    ctx.beginPath(); ctx.moveTo(ML, y); ctx.lineTo(W - MR, y); ctx.stroke();
+    ctx.fillStyle = '#8a8a90';
+    ctx.fillText(fmtNum(v, Math.abs(v) < 10 && v !== 0 && !Number.isInteger(v) ? 1 : 0), ML - 6, y);
+  }
+  ctx.save();
+  ctx.translate(12, MT + (H - MT - MB) / 2); ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#8a8a90'; ctx.fillText(unit, 0, 0);
+  ctx.restore();
+}
+
+let hatchPattern = null;
+function getHatch(ctx) {
+  if (hatchPattern) return hatchPattern;
+  const p = document.createElement('canvas'); p.width = 7; p.height = 7;
+  const c = p.getContext('2d');
+  c.strokeStyle = COLOR_CURTAIL; c.lineWidth = 1.6;
+  c.beginPath(); c.moveTo(-2, 9); c.lineTo(9, -2); c.stroke();
+  c.beginPath(); c.moveTo(-2, 2); c.lineTo(2, -2); c.stroke();
+  hatchPattern = ctx.createPattern(p, 'repeat');
+  return hatchPattern;
+}
+
+/* ---------- main dispatch chart ----------------------------------------- */
+function renderMain() {
+  const ds = S.dispatch; if (!ds) return;
+  const { ctx, W, H } = setupCanvas($('c-main'));
+  const v = viewSlice(ds);
+  const { i0, i1, times, cols } = v;
+  const nPts = i1 - i0;
+  if (nPts <= 0) return;
+
+  // Diverging stacked bands: each series is split into a positive band and a
+  // negative band with separate accumulators, so a series that flips sign
+  // between points (imports, pumped storage) never draws a polygon that
+  // sweeps across zero.
+  const nS = ds.stack.length;
+  const bandLo = ds.stack.map(() => new Float64Array(nPts));   // positive part
+  const bandHi = ds.stack.map(() => new Float64Array(nPts));
+  const bandNLo = ds.stack.map(() => new Float64Array(nPts));  // negative part
+  const bandNHi = ds.stack.map(() => new Float64Array(nPts));
+  const unservedLo = new Float64Array(nPts), unservedHi = new Float64Array(nPts);
+  const curtLo = new Float64Array(nPts), curtHi = new Float64Array(nPts);
+  let yMax = 1, yMin = 0;
+  for (let p = 0; p < nPts; p++) {
+    const i = i0 + p;
+    let pos = 0, neg = 0;
+    for (let s = 0; s < nS; s++) {
+      const val = cols[ds.stack[s].name][i];
+      const pv = val > 0 ? val : 0, nv = val < 0 ? val : 0;
+      bandLo[s][p] = pos; pos += pv; bandHi[s][p] = pos;
+      bandNHi[s][p] = neg; neg += nv; bandNLo[s][p] = neg;
+    }
+    if (ds.unserved) { const u = cols[ds.unserved][i]; unservedLo[p] = pos; pos += Math.max(0, u); unservedHi[p] = pos; }
+    if (ds.curtail) { const cv = Math.max(0, cols[ds.curtail][i]); curtHi[p] = neg; neg -= cv; curtLo[p] = neg; }
+    if (pos > yMax) yMax = pos;
+    if (neg < yMin) yMin = neg;
+    if (ds.demand) { const dm = cols[ds.demand][i]; if (dm > yMax) yMax = dm; }
+  }
+  yMax *= 1.05; if (yMin < 0) yMin *= 1.08;
+  const yOf = gw => H - MB - (gw - yMin) / (yMax - yMin) * (H - MT - MB);
+
+  drawXAxis(ctx, W, H);
+  drawYAxis(ctx, W, H, yMin, yMax, yOf, 'GW');
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(ML, MT, W - ML - MR, H - MT - MB); ctx.clip();
+
+  const xs = new Float64Array(nPts);
+  for (let p = 0; p < nPts; p++) xs[p] = xScale(times[i0 + p], W);
+
+  const fillBand = (lo, hi, style) => {
+    ctx.beginPath();
+    ctx.moveTo(xs[0], yOf(hi[0]));
+    for (let p = 1; p < nPts; p++) ctx.lineTo(xs[p], yOf(hi[p]));
+    for (let p = nPts - 1; p >= 0; p--) ctx.lineTo(xs[p], yOf(lo[p]));
+    ctx.closePath();
+    ctx.fillStyle = style; ctx.fill();
+  };
+  for (let s = 0; s < nS; s++) {
+    fillBand(bandLo[s], bandHi[s], ds.stack[s].color);
+    fillBand(bandNLo[s], bandNHi[s], ds.stack[s].color);
+  }
+  if (ds.curtail) { fillBand(curtLo, curtHi, getHatch(ctx)); }
+  if (ds.unserved) fillBand(unservedLo, unservedHi, COLOR_UNSERVED);
+
+  // hairline surface gaps between stacked bands (mark separation)
+  ctx.strokeStyle = 'rgba(252,252,251,0.85)'; ctx.lineWidth = 1;
+  for (let s = 0; s < nS; s++) {
+    ctx.beginPath();
+    ctx.moveTo(xs[0], yOf(bandHi[s][0]));
+    for (let p = 1; p < nPts; p++) ctx.lineTo(xs[p], yOf(bandHi[s][p]));
+    ctx.stroke();
+  }
+
+  // demand line
+  if (ds.demand) {
+    ctx.strokeStyle = COLOR_DEMAND; ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(xs[0], yOf(cols[ds.demand][i0]));
+    for (let p = 1; p < nPts; p++) ctx.lineTo(xs[p], yOf(cols[ds.demand][i0 + p]));
+    ctx.stroke();
+  }
+
+  // unserved emphasis: red ticks along the top edge wherever unserved > 0
+  // (in daily mode, wherever the day's engine-emitted MAX is > 0, so
+  //  sub-daily events cannot vanish into a mean)
+  if (ds.unserved) {
+    const flag = v.mode === 'daily' ? v.max[ds.unserved] : cols[ds.unserved];
+    ctx.fillStyle = COLOR_UNSERVED;
+    for (let p = 0; p < nPts; p++)
+      if (flag[i0 + p] > 0) ctx.fillRect(xs[p] - 1.5, MT, 3, 7);
+  }
+  ctx.restore();
+  drawCrosshair($('c-main'), W, H);
+}
+
+/* ---------- strips ------------------------------------------------------- */
+function renderResidual() {
+  const ds = S.dispatch;
+  const box = $('box-residual');
+  if (!ds || !ds.residual.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  $('residual-note').textContent = '— engine-emitted ' + ds.residual.join(', ');
+  const { ctx, W, H } = setupCanvas($('c-residual'));
+  const v = viewSlice(ds); const { i0, i1, times, cols } = v; const nPts = i1 - i0;
+  if (nPts <= 0) return;
+  const col = ds.residual[0];
+  let lo = 0, hi = 0;
+  for (let p = 0; p < nPts; p++) { const val = cols[col][i0 + p]; if (val > hi) hi = val; if (val < lo) lo = val; }
+  hi = hi * 1.1 || 1; lo = lo * 1.1;
+  const yOf = gw => H - MB - (gw - lo) / (hi - lo) * (H - MT - MB);
+  drawXAxis(ctx, W, H); drawYAxis(ctx, W, H, lo, hi, yOf, 'GW');
+  ctx.save(); ctx.beginPath(); ctx.rect(ML, MT, W - ML - MR, H - MT - MB); ctx.clip();
+  const y0 = yOf(0);
+  for (const [sign, color] of [[1, COLOR_SURPLUS], [-1, COLOR_DEFICIT]]) {
+    ctx.beginPath(); ctx.moveTo(xScale(times[i0], W), y0);
+    for (let p = 0; p < nPts; p++) {
+      const val = cols[col][i0 + p];
+      ctx.lineTo(xScale(times[i0 + p], W), yOf(sign > 0 ? Math.max(0, val) : Math.min(0, val)));
+    }
+    ctx.lineTo(xScale(times[i1 - 1], W), y0); ctx.closePath();
+    ctx.fillStyle = color; ctx.globalAlpha = 0.75; ctx.fill(); ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+  drawCrosshair($('c-residual'), W, H);
+}
+
+function renderPrice() {
+  const pr = S.prices;
+  const box = $('box-price');
+  if (!pr) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const { ctx, W, H } = setupCanvas($('c-price'));
+  const v = viewSlice(pr); const { i0, i1, times, cols } = v; const nPts = i1 - i0;
+  if (nPts <= 0) return;
+  const col = pr.priceCol;
+  let lo = 0, hi = 1;
+  for (let p = 0; p < nPts; p++) { const val = cols[col][i0 + p]; if (val > hi) hi = val; if (val < lo) lo = val; }
+  hi *= 1.08; if (lo < 0) lo *= 1.08;
+  const yOf = x => H - MB - (x - lo) / (hi - lo) * (H - MT - MB);
+  drawXAxis(ctx, W, H); drawYAxis(ctx, W, H, lo, hi, yOf, '£/MWh');
+  ctx.save(); ctx.beginPath(); ctx.rect(ML, MT, W - ML - MR, H - MT - MB); ctx.clip();
+
+  // zero-price shading: raw mode = periods with smp <= 0; daily mode = days
+  // whose engine-emitted MIN is <= 0 (labelled display aggregation)
+  const zeroSrc = v.mode === 'daily' ? v.min[col] : cols[col];
+  ctx.fillStyle = 'rgba(14,133,119,0.16)';
+  let runStart = -1;
+  const stepPx = nPts > 1 ? Math.max(1, xScale(times[i0 + 1], W) - xScale(times[i0], W)) : 2;
+  for (let p = 0; p <= nPts; p++) {
+    const z = p < nPts && zeroSrc[i0 + p] <= 0;
+    if (z && runStart < 0) runStart = p;
+    if (!z && runStart >= 0) {
+      const x0 = xScale(times[i0 + runStart], W) - stepPx / 2;
+      const x1 = xScale(times[i0 + p - 1], W) + stepPx / 2;
+      ctx.fillRect(x0, MT, Math.max(1.5, x1 - x0), H - MT - MB);
+      runStart = -1;
+    }
+  }
+  // price-setter base band: raw mode = the period's setter colour full-height;
+  // daily mode = stacked fraction-of-day mix (display aggregation). Remaining
+  // height = no price-setter (must-take only), which is also the zero-price
+  // shading above.
+  const st = pr.setters;
+  if (st && st.names.length) {
+    const bandH = 14, yB = H - MB;
+    const xs = new Float64Array(nPts);
+    for (let p = 0; p < nPts; p++) xs[p] = xScale(times[i0 + p], W);
+    for (let p = 0; p < nPts; p++) {
+      const i = i0 + p;
+      const x0 = p > 0 ? (xs[p - 1] + xs[p]) / 2 : (nPts > 1 ? xs[0] - (xs[1] - xs[0]) / 2 : xs[0] - 2);
+      const x1 = p < nPts - 1 ? (xs[p] + xs[p + 1]) / 2 : (nPts > 1 ? xs[p] + (xs[p] - xs[p - 1]) / 2 : xs[p] + 2);
+      let yCur = yB;
+      for (let k = 0; k < st.names.length; k++) {
+        const f = v.mode === 'daily' ? st.dayFrac[st.names[k]][i] : (st.raw[i] === st.names[k] ? 1 : 0);
+        if (f > 0) {
+          const hSeg = bandH * f;
+          ctx.fillStyle = st.colors[k];
+          ctx.fillRect(x0, yCur - hSeg, Math.max(1, x1 - x0), hSeg);
+          yCur -= hSeg;
+        }
+      }
+    }
+  }
+  ctx.strokeStyle = COLOR_PRICE; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(xScale(times[i0], W), yOf(cols[col][i0]));
+  for (let p = 1; p < nPts; p++) ctx.lineTo(xScale(times[i0 + p], W), yOf(cols[col][i0 + p]));
+  ctx.stroke();
+  ctx.restore();
+  drawCrosshair($('c-price'), W, H);
+}
+
+// Reliability strip: the engine-emitted firm-share ratio, unclamped, with the
+// gridmargin traffic-light tint and the 0.5 alarm threshold. In daily mode the
+// day's MINIMUM is shown — worst moment wins (keepWorstHigh) — and labelled.
+function renderReliability() {
+  const ds = S.dispatch;
+  const box = $('box-rel');
+  if (!ds || !ds.shares.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const col = ds.shares.find(nm => /firm/.test(nm)) || ds.shares[0];
+  const { ctx, W, H } = setupCanvas($('c-rel'));
+  const v = viewSlice(ds); const { i0, i1, times } = v; const nPts = i1 - i0;
+  if (nPts <= 0) return;
+  const src = v.mode === 'daily' ? v.min[col] : v.cols[col];
+  $('rel-note').textContent = v.mode === 'daily'
+    ? `— ${col}, daily MINIMUM (worst half-hour, keepWorstHigh; display aggregation) · alarm below ${RAMP_ALARM}`
+    : `— ${col}, half-hourly · alarm below ${RAMP_ALARM}`;
+  let mn = Infinity, mx = -Infinity;
+  for (let p = 0; p < nPts; p++) { const val = src[i0 + p]; if (val < mn) mn = val; if (val > mx) mx = val; }
+  const lo = Math.min(RAMP_ALARM - 0.1, mn) - 0.03, hi = Math.max(1, mx) + 0.03;
+  const yOf = x => H - MB - (x - lo) / (hi - lo) * (H - MT - MB);
+  drawXAxis(ctx, W, H); drawYAxis(ctx, W, H, lo, hi, yOf, 'ratio');
+  ctx.save(); ctx.beginPath(); ctx.rect(ML, MT, W - ML - MR, H - MT - MB); ctx.clip();
+  const xs = new Float64Array(nPts);
+  for (let p = 0; p < nPts; p++) xs[p] = xScale(times[i0 + p], W);
+  // background tint: green→amber→red as firm share falls
+  ctx.globalAlpha = 0.20;
+  for (let p = 0; p < nPts; p++) {
+    const x0 = p > 0 ? (xs[p - 1] + xs[p]) / 2 : (nPts > 1 ? xs[0] - (xs[1] - xs[0]) / 2 : xs[0] - 2);
+    const x1 = p < nPts - 1 ? (xs[p] + xs[p + 1]) / 2 : (nPts > 1 ? xs[p] + (xs[p] - xs[p - 1]) / 2 : xs[p] + 2);
+    ctx.fillStyle = rampColor(src[i0 + p]);
+    ctx.fillRect(x0, MT, Math.max(1, x1 - x0), H - MT - MB);
+  }
+  ctx.globalAlpha = 1;
+  // 0.5 alarm threshold (gridmargin convention)
+  const yA = yOf(RAMP_ALARM);
+  ctx.strokeStyle = '#d61231'; ctx.lineWidth = 1.2; ctx.setLineDash([5, 3]);
+  ctx.beginPath(); ctx.moveTo(ML, yA); ctx.lineTo(W - MR, yA); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#d61231'; ctx.font = '10px system-ui, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText('0.5 alarm (gridmargin)', ML + 5, yA - 2);
+  // the ratio line itself
+  ctx.strokeStyle = '#1c1c20'; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(xs[0], yOf(src[i0]));
+  for (let p = 1; p < nPts; p++) ctx.lineTo(xs[p], yOf(src[i0 + p]));
+  ctx.stroke();
+  ctx.restore();
+  drawCrosshair($('c-rel'), W, H);
+}
+
+// Monthly-mix panel: static stacked bars of the engine's per-month energy
+// ledger (GWh); demand as a dash per month. Not linked to the time zoom.
+function renderMonthly() {
+  const mm = S.monthly;
+  const box = $('box-monthly');
+  if (!mm) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const { ctx, W, H } = setupCanvas($('c-monthly'));
+  const n = mm.n;
+  const plotW = W - ML - MR, slot = plotW / n, bw = Math.min(60, Math.max(6, slot * 0.62));
+  let yMax = 1, yMin = 0;
+  const bars = [];
+  for (let m = 0; m < n; m++) {
+    let pos = 0, neg = 0; const bl = [];
+    for (const s of mm.stack) {
+      const val = mm.cols[s.name][m];
+      if (val > 0) { bl.push({ lo: pos, hi: pos + val, color: s.color }); pos += val; }
+      else if (val < 0) { bl.push({ lo: neg + val, hi: neg, color: s.color }); neg += val; }
+    }
+    if (mm.demand) { const d = mm.cols[mm.demand][m]; if (d > yMax) yMax = d; }
+    if (pos > yMax) yMax = pos;
+    if (neg < yMin) yMin = neg;
+    bars.push(bl);
+  }
+  yMax *= 1.06; if (yMin < 0) yMin *= 1.1;
+  const yOf = val => H - MB - (val - yMin) / (yMax - yMin) * (H - MT - MB);
+  drawYAxis(ctx, W, H, yMin, yMax, yOf, 'GWh');
+  ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let m = 0; m < n; m++) {
+    const x0 = ML + slot * m + (slot - bw) / 2;
+    for (const b of bars[m]) {
+      ctx.fillStyle = b.color;
+      ctx.fillRect(x0, yOf(b.hi), bw, Math.max(0.5, yOf(b.lo) - yOf(b.hi) - 1));
+    }
+    if (mm.demand) {
+      ctx.strokeStyle = COLOR_DEMAND; ctx.lineWidth = 2;
+      const yd = yOf(mm.cols[mm.demand][m]);
+      ctx.beginPath(); ctx.moveTo(x0 - 3, yd); ctx.lineTo(x0 + bw + 3, yd); ctx.stroke();
+    }
+    const d = new Date(mm.times[m]);
+    ctx.fillStyle = '#8a8a90';
+    ctx.fillText(MONTHS[d.getUTCMonth()] + (m === 0 ? ' ' + d.getUTCFullYear() : ''), x0 + bw / 2, H - MB + 5);
+  }
+  S._monthlyLayout = { slot, n };
+}
+
+function renderSoc() {
+  const ds = S.dispatch;
+  const box = $('box-soc');
+  if (!ds || !ds.soc.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const { ctx, W, H } = setupCanvas($('c-soc'));
+  const v = viewSlice(ds); const { i0, i1, times, cols } = v; const nPts = i1 - i0;
+  if (nPts <= 0) return;
+  let hi = 1;
+  for (const col of ds.soc) for (let p = 0; p < nPts; p++) { const val = cols[col][i0 + p]; if (val > hi) hi = val; }
+  hi *= 1.08;
+  const yOf = x => H - MB - x / hi * (H - MT - MB);
+  drawXAxis(ctx, W, H); drawYAxis(ctx, W, H, 0, hi, yOf, 'GWh');
+  ctx.save(); ctx.beginPath(); ctx.rect(ML, MT, W - ML - MR, H - MT - MB); ctx.clip();
+  ds.soc.forEach((col, k) => {
+    const color = SOC_COLORS[Math.min(k, SOC_COLORS.length - 1)];
+    ctx.beginPath();
+    ctx.moveTo(xScale(times[i0], W), yOf(cols[col][i0]));
+    for (let p = 1; p < nPts; p++) ctx.lineTo(xScale(times[i0 + p], W), yOf(cols[col][i0 + p]));
+    ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.stroke();
+    // fill to zero, faint
+    ctx.lineTo(xScale(times[i1 - 1], W), yOf(0)); ctx.lineTo(xScale(times[i0], W), yOf(0));
+    ctx.closePath(); ctx.fillStyle = color; ctx.globalAlpha = 0.10; ctx.fill(); ctx.globalAlpha = 1;
+    // direct label
+    ctx.fillStyle = color; ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(prettyName(col), ML + 6 + k * 110, MT + 12);
+  });
+  ctx.restore();
+  drawCrosshair($('c-soc'), W, H);
+}
+
+/* ---------- crosshair + tooltip ------------------------------------------ */
+function drawCrosshair(canvas, W, H) {
+  if (S.hoverT == null) return;
+  const x = xScale(S.hoverT, W);
+  if (x < ML || x > W - MR) return;
+  const ctx = canvas.getContext('2d');
+  ctx.strokeStyle = 'rgba(28,28,32,0.45)'; ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(x, MT); ctx.lineTo(x, H - MB); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function updateTooltip(clientX, clientY) {
+  const tt = $('tooltip');
+  if (S.hoverT == null || !S.dispatch) { tt.style.display = 'none'; return; }
+  const ds = S.dispatch;
+  const v = viewSlice(ds);
+  let i = bisect(v.times, S.hoverT);
+  if (i > v.i0 && (i >= v.i1 || S.hoverT - v.times[i - 1] < v.times[i] - S.hoverT)) i--;
+  i = Math.max(v.i0, Math.min(v.i1 - 1, i));
+
+  const rows = [];
+  const addRow = (label, val, color, unit, cls, dp) =>
+    rows.push({ label, val, color, unit, cls, dp });
+  if (ds.demand) addRow('demand', v.cols[ds.demand][i], COLOR_DEMAND, 'GW', 'total');
+  if (ds.unserved && v.cols[ds.unserved][i] > 0) addRow('unserved', v.cols[ds.unserved][i], COLOR_UNSERVED, 'GW');
+  for (let s = ds.stack.length - 1; s >= 0; s--)
+    addRow(prettyName(ds.stack[s].name), v.cols[ds.stack[s].name][i], ds.stack[s].color, 'GW');
+  if (ds.curtail && v.cols[ds.curtail][i] > 0) addRow('curtailment', v.cols[ds.curtail][i], COLOR_CURTAIL, 'GW');
+  for (const col of ds.soc) addRow(prettyName(col), v.cols[col][i], SOC_COLORS[0], 'GWh');
+  for (const col of ds.residual) addRow(prettyName(col), v.cols[col][i], COLOR_SURPLUS, 'GW');
+  // reliability: engine-emitted ratio (day MINIMUM in daily mode) + the
+  // engine's aggregate supply buckets
+  if (ds.shares.length) {
+    const shareCol = ds.shares.find(nm => /firm/.test(nm)) || ds.shares[0];
+    const sv = v.mode === 'daily' ? v.min[shareCol][i] : v.cols[shareCol][i];
+    addRow(prettyName(shareCol) + (v.mode === 'daily' ? ' (day min)' : ''), sv, rampColor(sv), '', null, 3);
+  }
+  for (const col of ds.aggregates) addRow(prettyName(col), v.cols[col][i], '#8a8a90', col.endsWith('h') ? 'GWh' : 'GW');
+  if (S.prices) {
+    const pv = viewSlice(S.prices);
+    let j = bisect(pv.times, S.hoverT);
+    if (j > pv.i0 && (j >= pv.i1 || S.hoverT - pv.times[j - 1] < pv.times[j] - S.hoverT)) j--;
+    j = Math.max(pv.i0, Math.min(pv.i1 - 1, j));
+    if (pv.i1 > pv.i0) {
+      addRow('SMP', pv.cols[S.prices.priceCol][j], COLOR_PRICE, '£/MWh');
+      const st = S.prices.setters;
+      if (st && st.names.length) {
+        if (pv.mode === 'daily') {
+          const parts = st.names.map(nm => Math.round(100 * st.dayFrac[nm][j]) + '% ' + nm);
+          const nonePct = Math.max(0, 100 - st.names.reduce((a, nm) => a + Math.round(100 * st.dayFrac[nm][j]), 0));
+          rows.push({ label: 'setter mix (day)', text: parts.join(' / ') + (nonePct > 0 ? ' / ' + nonePct + '% none' : ''), color: '#8a8a90' });
+        } else {
+          const nm = st.raw[j];
+          rows.push({ label: 'price setter', text: nm || 'none (must-take only)',
+                      color: nm ? st.colors[st.names.indexOf(nm)] : 'rgba(14,133,119,0.45)' });
+        }
+      }
+    }
+  }
+
+  tt.textContent = '';
+  const timeDiv = document.createElement('div'); timeDiv.className = 'tt-time';
+  timeDiv.textContent = v.mode === 'daily' ? fmtUTC(v.times[i], false) : fmtUTC(v.times[i], true);
+  if (v.mode === 'daily') {
+    const m = document.createElement('span'); m.className = 'tt-mode'; m.textContent = ' · daily mean';
+    timeDiv.append(m);
+  }
+  tt.append(timeDiv);
+  const table = document.createElement('table');
+  for (const r of rows) {
+    const tr = document.createElement('tr'); if (r.cls) tr.className = r.cls;
+    const td1 = document.createElement('td');
+    const sw = document.createElement('span'); sw.className = 'sw'; sw.style.background = r.color;
+    td1.append(sw, document.createTextNode(r.label));
+    const td2 = document.createElement('td'); td2.className = 'num';
+    td2.textContent = r.text != null ? r.text : fmtNum(r.val, r.dp == null ? 2 : r.dp) + (r.unit ? ' ' + r.unit : '');
+    tr.append(td1, td2); table.append(tr);
+  }
+  tt.append(table);
+  tt.style.display = 'block';
+  const pad = 14;
+  const rect = tt.getBoundingClientRect();
+  let x = clientX + pad, y = clientY + pad;
+  if (x + rect.width > window.innerWidth - 8) x = clientX - rect.width - pad;
+  if (y + rect.height > window.innerHeight - 8) y = window.innerHeight - rect.height - 8;
+  tt.style.left = x + 'px'; tt.style.top = y + 'px';
+}
+
+/* ---------- interaction --------------------------------------------------- */
+function clampView() {
+  const span = Math.max(MIN_SPAN_MS, Math.min(S.view.t1 - S.view.t0, S.full.t1 - S.full.t0));
+  let t0 = S.view.t0;
+  if (t0 < S.full.t0) t0 = S.full.t0;
+  if (t0 + span > S.full.t1) t0 = S.full.t1 - span;
+  S.view = { t0, t1: t0 + span };
+}
+function bindInteraction(canvas) {
+  let dragging = false, dragT = 0, moved = false;
+  canvas.addEventListener('wheel', e => {
+    if (!S.dispatch) return;
+    e.preventDefault();
+    const W = canvas.parentElement.clientWidth;
+    const tAt = xInvert(e.offsetX, W);
+    const factor = Math.exp(e.deltaY * 0.0016);
+    const span = (S.view.t1 - S.view.t0) * factor;
+    const frac = (tAt - S.view.t0) / (S.view.t1 - S.view.t0);
+    S.view = { t0: tAt - span * frac, t1: tAt + span * (1 - frac) };
+    clampView(); renderCharts();
+  }, { passive: false });
+  canvas.addEventListener('pointerdown', e => {
+    if (!S.dispatch) return;
+    dragging = true; moved = false;
+    dragT = xInvert(e.offsetX, canvas.parentElement.clientWidth);
+    canvas.setPointerCapture(e.pointerId);
+    canvas.classList.add('panning');
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!S.dispatch) return;
+    const W = canvas.parentElement.clientWidth;
+    if (dragging) {
+      moved = true;
+      const tNow = xInvert(e.offsetX, W);
+      const dt = dragT - tNow;
+      S.view = { t0: S.view.t0 + dt, t1: S.view.t1 + dt };
+      clampView(); renderCharts();
+    }
+    S.hoverT = Math.max(S.full.t0, Math.min(S.full.t1, xInvert(e.offsetX, W)));
+    renderCharts();
+    updateTooltip(e.clientX, e.clientY);
+  });
+  const endDrag = e => { dragging = false; canvas.classList.remove('panning'); };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('pointerleave', () => {
+    S.hoverT = null; $('tooltip').style.display = 'none'; renderCharts();
+  });
+  canvas.addEventListener('dblclick', () => { resetView(); renderCharts(); });
+}
+
+/* ---------- top-level render ----------------------------------------------- */
+function renderCharts() {
+  if (!S.dispatch && !S.monthly) { $('charts').style.display = 'none'; return; }
+  $('charts').style.display = 'block';
+  $('box-main').style.display = S.dispatch ? 'block' : 'none';
+  $('statusbar').style.display = S.dispatch ? 'flex' : 'none';
+  if (S.dispatch) {
+    renderMain(); renderResidual(); renderPrice(); renderReliability(); renderSoc();
+    const v = viewSlice(S.dispatch);
+    const rawVisible = Math.max(0, bisect(S.dispatch.times, S.view.t1) - bisect(S.dispatch.times, S.view.t0));
+    $('aggmode').textContent = v.mode === 'daily'
+      ? 'showing daily means (display aggregation) — zoom in for half-hourly'
+      : 'half-hourly resolution (engine-emitted values)';
+    $('viewspan').textContent = `${fmtUTC(S.view.t0, false)} → ${fmtUTC(S.view.t1 - 1, false)} · ${rawVisible.toLocaleString('en-GB')} half-hours in view`;
+  }
+  renderMonthly();
+}
+function refreshAll() {
+  renderProvenance(); renderLegend(); renderCharts();
+  if (S.dispatch) {
+    const dz = $('dropzone');
+    dz.classList.add('compact');
+    dz.querySelector('.big').textContent = 'Load more files';
+    dz.querySelector('.hint').textContent = 'drop another dispatch.csv / prices.csv / monthly_mix.csv / summary.toml to replace';
+  }
+}
+
+/* ---------- wiring ----------------------------------------------------------- */
+const dz = $('dropzone');
+dz.addEventListener('click', () => $('fileinput').click());
+$('fileinput').addEventListener('change', e => { [...e.target.files].forEach(routeFile); e.target.value = ''; });
+['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('dragover'); }));
+['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('dragover'); }));
+dz.addEventListener('drop', e => [...e.dataTransfer.files].forEach(routeFile));
+document.body.addEventListener('dragover', e => e.preventDefault());
+document.body.addEventListener('drop', e => e.preventDefault());
+$('resetzoom').addEventListener('click', () => { resetView(); renderCharts(); });
+['c-main', 'c-residual', 'c-price', 'c-rel', 'c-soc'].forEach(id => bindInteraction($(id)));
+window.addEventListener('resize', renderCharts);
+
+// monthly panel: categorical hover tooltip (not time-synced)
+$('c-monthly').addEventListener('pointermove', e => {
+  const mm = S.monthly, lay = S._monthlyLayout, tt = $('tooltip');
+  if (!mm || !lay) return;
+  const m = Math.floor((e.offsetX - ML) / lay.slot);
+  if (m < 0 || m >= lay.n) { tt.style.display = 'none'; return; }
+  tt.textContent = '';
+  const d = new Date(mm.times[m]);
+  const timeDiv = document.createElement('div'); timeDiv.className = 'tt-time';
+  timeDiv.textContent = `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()} (monthly energy)`;
+  tt.append(timeDiv);
+  const table = document.createElement('table');
+  const row = (label, val, color, cls) => {
+    const tr = document.createElement('tr'); if (cls) tr.className = cls;
+    const td1 = document.createElement('td');
+    const sw = document.createElement('span'); sw.className = 'sw'; sw.style.background = color;
+    td1.append(sw, document.createTextNode(label));
+    const td2 = document.createElement('td'); td2.className = 'num';
+    td2.textContent = fmtNum(val, 0) + ' GWh';
+    tr.append(td1, td2); table.append(tr);
+  };
+  if (mm.demand) row('demand', mm.cols[mm.demand][m], COLOR_DEMAND, 'total');
+  for (let s = mm.stack.length - 1; s >= 0; s--)
+    if (mm.cols[mm.stack[s].name][m] !== 0) row(prettyName(mm.stack[s].name), mm.cols[mm.stack[s].name][m], mm.stack[s].color);
+  tt.append(table);
+  tt.style.display = 'block';
+  const rect = tt.getBoundingClientRect();
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + rect.width > window.innerWidth - 8) x = e.clientX - rect.width - 14;
+  if (y + rect.height > window.innerHeight - 8) y = window.innerHeight - rect.height - 8;
+  tt.style.left = x + 'px'; tt.style.top = y + 'px';
+});
+$('c-monthly').addEventListener('pointerleave', () => { $('tooltip').style.display = 'none'; });
+
+/* debug/test hook — used by the automated end-to-end check; not part of the UI */
+window.__viewer = {
+  state: S,
+  setRange(t0, t1) { S.view = { t0, t1 }; clampView(); renderCharts(); },
+  loadText(text, filename) {   // same path as file drop, for scripted tests
+    routeFile({ name: filename, text: () => Promise.resolve(text) });
+  },
+};
+</script>
+</body>
+</html>

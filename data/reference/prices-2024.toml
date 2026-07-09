@@ -1,0 +1,148 @@
+# 2024 fuel and carbon price reference — the "committed reference file" row
+# of docs/05-validation.md. Assembled 2026-07-02 (data engineer). Every
+# number carries its citation; nothing here is fetched at build time.
+#
+# Stage 2 SRMC recipe these numbers support (docs/04 Stage 2):
+#   SRMC [£/MWh_e] = gas_price_hhv / efficiency_hhv
+#                  + (ef_gas_tco2_per_mwh_th_hhv / efficiency_hhv)
+#                    * (uka_price + carbon_price_support)
+# All gas prices and efficiencies are on a GROSS calorific value (HHV)
+# basis, consistently — GB gas is traded and billed gross (ONS SAP is
+# gross; DUKES 5.10.C efficiencies are gross; the emission factor below is
+# the gross-CV factor). Do not mix bases.
+
+schema = "prices-reference-v1"
+year = 2024
+
+[gas]
+# Monthly System Average Price (SAP) of gas, £/MWh (HHV), converted from
+# p/kWh × 10. SAP is the volume-weighted average price of gas traded on
+# the On-the-Day Commodity Market (OCM) — a within-day GB wholesale price,
+# not the NBP day-ahead assessment. Chosen because it is the only *openly
+# licensed* daily/monthly GB hub price found: NBP day-ahead assessments
+# (ICIS Heren, LSEG/Refinitiv — as charted on the Ofgem data portal) are
+# proprietary and not redistributable. SAP tracks day-ahead NBP closely
+# under normal conditions; the difference is within-day vs day-ahead
+# delivery, not locational.
+# Source: ONS, "System Average Price (SAP) of gas", 9 Jan 2025 edition,
+# Table 2 (monthly, non-seasonally adjusted); underlying data National Gas
+# Transmission. Licence: Open Government Licence v3.0.
+# https://www.ons.gov.uk/economy/economicoutputandproductivity/output/datasets/systemaveragepricesapofgas
+# The matching DAILY series (366 values) is delivered in the fetched pack
+# as data/packs/2024/processed/gas_sap_daily_2024.{csv,parquet}.
+unit = "GBP/MWh_th_HHV"
+monthly_sap = [
+  { month = "2024-01", price = 25.70 },
+  { month = "2024-02", price = 21.49 },
+  { month = "2024-03", price = 23.33 },
+  { month = "2024-04", price = 24.66 },
+  { month = "2024-05", price = 26.37 },
+  { month = "2024-06", price = 28.18 },
+  { month = "2024-07", price = 25.53 },
+  { month = "2024-08", price = 28.70 },
+  { month = "2024-09", price = 29.84 },
+  { month = "2024-10", price = 33.85 },
+  { month = "2024-11", price = 37.79 },
+  { month = "2024-12", price = 38.28 },
+]
+# Cross-check: unweighted mean of the above = 28.64 £/MWh; mean of the
+# daily SAP trace = 28.67 £/MWh.
+
+[carbon.uka]
+# UK ETS allowance (UKA) auction clearing prices, all 25 auctions of the
+# 2024 scheme year, £/tCO2e. Source: UK ETS Authority, "Report on the
+# functioning of the UK carbon market for 2024" (published 14 Oct 2025),
+# Table 1. Licence: Open Government Licence v3.0.
+# https://www.gov.uk/government/publications/functioning-of-the-uk-carbon-market-2024
+# (PDF kept for provenance at data/packs/2024/raw/uk-carbon-market-report-2024.pdf)
+# Auctions are fortnightly; a half-hourly/daily UKA series would need ICE
+# secondary-market settlement prices, which are not openly redistributable.
+# Convention for a continuous series: step-interpolate (forward-fill from
+# the most recent auction; before 10 Jan, use the 10 Jan value).
+unit = "GBP/tCO2e"
+auctions = [
+  { date = 2024-01-10, clearing_price = 37.02 },
+  { date = 2024-01-24, clearing_price = 32.61 },
+  { date = 2024-02-07, clearing_price = 32.75 },
+  { date = 2024-02-21, clearing_price = 32.10 },
+  { date = 2024-03-06, clearing_price = 34.70 },
+  { date = 2024-03-20, clearing_price = 34.65 },
+  { date = 2024-04-03, clearing_price = 32.70 },
+  { date = 2024-04-17, clearing_price = 33.50 },
+  { date = 2024-05-01, clearing_price = 35.15 },
+  { date = 2024-05-15, clearing_price = 37.00 },
+  { date = 2024-05-29, clearing_price = 43.75 },
+  { date = 2024-06-12, clearing_price = 46.92 },
+  { date = 2024-06-26, clearing_price = 45.00 },
+  { date = 2024-07-10, clearing_price = 40.35 },
+  { date = 2024-07-24, clearing_price = 38.62 },
+  { date = 2024-08-07, clearing_price = 36.10 },
+  { date = 2024-08-21, clearing_price = 39.25 },
+  { date = 2024-09-04, clearing_price = 40.90 },
+  { date = 2024-09-18, clearing_price = 39.20 },
+  { date = 2024-10-02, clearing_price = 34.91 },
+  { date = 2024-10-16, clearing_price = 38.25 },
+  { date = 2024-10-30, clearing_price = 36.72 },
+  { date = 2024-11-13, clearing_price = 37.30 },
+  { date = 2024-11-27, clearing_price = 35.50 },
+  { date = 2024-12-11, clearing_price = 34.55 },
+]
+# Cross-check: mean of the 25 clearing prices = £37.18, matching the
+# independently reported 2024 UK ETS auction average (Argus, 2025-01).
+
+[carbon.cps]
+# Carbon Price Support (CPS): GB-only tax on generators' fossil CO2, paid
+# ON TOP of the UKA price. Frozen at £18/tCO2 since April 2016 and
+# throughout 2024. Source: HM Treasury / HMRC carbon price floor rates
+# (Budget 2014 cap; freezes reconfirmed at successive budgets, incl.
+# Autumn Budget 2024 for 2026-27); House of Commons Library briefing
+# SN05927, "Carbon Price Floor (CPF) and the price support mechanism".
+# https://commonslibrary.parliament.uk/research-briefings/sn05927/
+rate = 18.0
+unit = "GBP/tCO2"
+
+[emission_factor.natural_gas]
+# UK Government GHG Conversion Factors for Company Reporting 2024,
+# condensed set v1.1, "Fuels" sheet, Natural gas per kWh (Gross CV).
+# Licence: OGL v3.0.
+# https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2024
+# CO2-only factor used for carbon-cost arithmetic: the UK ETS and CPS
+# charge combustion CO2 only, not CH4/N2O.
+co2_tonnes_per_mwh_th_hhv = 0.18253   # CO2 component
+co2e_tonnes_per_mwh_th_hhv = 0.18290  # total kgCO2e (incl. CH4, N2O) — for
+                                      # emissions accounting, not pricing
+# Implied NCV/GCV energy ratio for natural gas (same source, net-CV factor
+# 0.20264 kgCO2e/kWh): 0.18290 / 0.20264 = 0.9026. Used to convert
+# LHV-basis efficiencies to HHV below.
+
+[efficiency.ccgt]
+# GB CCGT fleet-average thermal efficiency, gross CV basis, 2024: 48.93 %.
+# Source: DUKES 2025, Table 5.10.C ("Thermal efficiency, gross calorific
+# value basis, major power producers"), CCGT row, 2024 column. OGL v3.0.
+# https://assets.publishing.service.gov.uk/media/688a28d6a11f85999440927a/DUKES_5.10.xlsx
+# This is a FLEET AVERAGE (2023: 49.91 %). The marginal CCGT unit is
+# typically less efficient than the average when the fleet is deep in the
+# merit order; analyze.py carries a 0.45–0.53 sensitivity band.
+hhv = 0.4893
+hhv_sensitivity = [0.45, 0.53]
+
+[efficiency.ocgt]
+# OCGT (<300 MW class) net efficiency: 38.7 % LHV central (range
+# 38.3–42.2 % over degradation scenarios) -> × 0.9026 = 34.9 % HHV.
+# Source: DESNZ / GHD, "Unabated gas electricity generation cost study"
+# (2025), Generation Option 3 (OCGT < 300 MW), Table 3.12. OGL v3.0.
+# https://assets.publishing.service.gov.uk/media/696616c68d599f4c09e1ffae/unabated-gas-electricity-generation-costs-2025.pdf
+# Note: this is a new-plant value; the small, old 2024 GB OCGT fleet
+# (0.17 TWh in 2024) is likely less efficient — treat as an upper bound
+# on OCGT efficiency, i.e. a lower bound on OCGT SRMC.
+lhv = 0.387
+hhv = 0.349
+
+[vom]
+# Variable O&M is EXCLUDED from the SRMC recipe above; typical published
+# CCGT VOM is ~£2–5/MWh (DESNZ Electricity Generation Costs 2023,
+# https://assets.publishing.service.gov.uk/media/6556027d046ed400148b99fe/electricity-generation-costs-2023.pdf).
+# analyze.py reports the sensitivity of the gas-marginal statistic to a
+# +£3/MWh VOM adder rather than baking a number in.
+ccgt_typical_gbp_per_mwh = 3.0
+included_in_srmc = false

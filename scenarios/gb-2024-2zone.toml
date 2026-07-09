@@ -1,0 +1,369 @@
+# GB 2024 TWO-ZONE scenario — Scotland (SCO) / rest-of-GB (RGB) with
+# the B6 Anglo-Scottish boundary as the single internal link.
+#
+# THE PACKAGE: the Richard-promoted B6 beta item (memory/project-state
+# V1/BETA item 2). Evidence: docs/notes/b6-two-zone-data-report.md (the
+# reviewed data package, commit 274a750); the LINK CONVENTION below is
+# the adversarial review's §6 ruling, implemented verbatim
+# (docs/notes/b6-two-zone-data-review.md; transcribed in the report §8).
+# Schema v6 (docs/03) exists for this file: per-direction and
+# time-series link capability, and the exogenous `scale` splitter.
+#
+# ZONE DEFINITION (report §2): SCO = Scotland; RGB = England + Wales.
+# GB totals are the validated gb-2024-reference.toml values; each is
+# split by the report's cited share, so the GB fleet is conserved
+# except where station arithmetic is itself the citation (pumped
+# storage, nuclear, ccgt — see the entries).
+#
+# THE LINK CONVENTION (review §6 ruling, verbatim obligations):
+#   (a) The link is B6, NOT a Scottish-boundary group aggregate. This
+#       2024 validation run takes the OBSERVED half-hourly day-ahead
+#       limit series as the export (SCO→RGB) capability
+#       (data/packs/b6/processed/b6_da_flows_limits.parquet, column
+#       limit_mw; manifest data/packs/b6.sha256, retrieval 2026-07-04).
+#       Sentinel rule, stated here and enforced by the schema-v6
+#       capability_trace block below: limit >= 9,999 MW is NESO's
+#       "no constraint recorded" sentinel -> replaced by the ETYS
+#       planning capability 6.7 GW (review condition 4 is OUTSTANDING:
+#       6.7 GW is cited to a JS-rendered NESO ETYS page not yet pinned
+#       to a fetchable artefact; the observed limit envelope is
+#       consistent — p99 6,400 MW, no non-sentinel limit above it —
+#       and only 116 of 17,568 periods carry the sentinel, so the
+#       sensitivity is negligible; the condition stays open on the
+#       record). limit = 0 (53 periods) is treated as capability
+#       MISSING — masked out of all gate arithmetic (not corroborated
+#       as real outages) — as are the 354 missing rows and 3 NaN rows;
+#       masked periods dispatch against the pinned central value
+#       4.1 GW (the 2024 median observed limit). Import (RGB→SCO)
+#       capability = 3.5 GW flat (superseded Year Ahead Constraint
+#       Limits "B6 import - HARETORIM" series, 2021-22 vintage, median
+#       3,500 MW — the only published import-limit evidence; report
+#       §5). Non-2024 / scaled runs use export 4.1 GW central
+#       (brackets 2.7 / 5.5 IQR, 6.7 ETYS) and import 3.5 GW — no
+#       synthesised limit series for other years (outage-driven, no
+#       published basis).
+#   (b) Validation gates are B6-specific (grid-adequacy/tests/
+#       acceptance_b6_2zone.rs): (i) pre-constraint boundary flow vs
+#       the DA flow series (net ~22.6 TWh southward over the observed
+#       mask), (ii) constrained export vs the 17 TWh Energy Trends
+#       outturn carrying the ~2 TWh irreducible DA-vs-outturn wedge,
+#       (iii) binding frequency vs 23.6 % of periods at >= 99 % of the
+#       limit.
+#   (c) QUOTE DUTY: model constraint/curtailment outputs from this
+#       scenario are a LOWER BOUND on the Scottish constraint
+#       phenomenon — the two-zone geometry sees ONLY B6; the
+#       intra-Scottish B4/B5 boundaries (B4 cost 4x B6 in 2024) are
+#       structurally invisible. The like-for-like cost anchor is B6
+#       (SCOTEX £90.5m calendar 2024); the Scottish boundary group
+#       (£525.8m) is CONTEXT ONLY, never a tuning target. The link
+#       capability must never be tuned to reproduce the group cost.
+#
+# EXTERNAL INTERCONNECTORS — the stated v1 convention: in this GB-only
+# two-zone scenario, external links are NOT modelled zones (that is the
+# 5-zone scenario's job); they enter as the single-zone convention's
+# EXOGENOUS observed net-import traces, attached PER ZONE BY LANDING
+# POINT (NESO Interconnector Register, report §2): Moyle lands at
+# Auchencrosh 275 kV (Ayrshire) -> SCO gets the FUELHH intirl column
+# (net -2.50 TWh 2024: GB exports to NI); every other built link lands
+# in England/Wales (NSL at Blyth, NOT Scotland) -> RGB gets the other
+# nine FUELHH columns (net +35.80 TWh). Consequence, stated: external
+# flows cannot respond to the B6 constraint (they are observed 2024
+# actuals); the 5-zone scenario models the response — a deliberate
+# division of labour.
+#
+# DEMAND (report §4): flat split of the D3 underlying-demand trace —
+# SCO 10.1 % / RGB 89.9 % (Energy Trends 2024 consumption shares,
+# GB basis 9.8/97.1). The station-transformer wedge (0.667 GW) splits
+# pro-rata: 0.067367 / 0.599633. Stated limits (report §4): Scotland's
+# peakier winter shape, higher northern losses and the station-load
+# split are all second-order at a 10 % share; P114 GSP-group data is
+# the v2 refinement.
+#
+# NATIONAL EXOGENOUS SERIES are split by the schema-v6 `scale`:
+#   pumped_storage_net: by PS POWER share 0.2617 / 0.7383 (740 /
+#     2,088 MW station data — an MW series splits by rating; the
+#     ENERGY share 55.8 % Scotland is the alternative, named not used);
+#   other (FUELHH): by demand share 0.101 / 0.899 (embedded misc.
+#     generation, no zonal register).
+#
+# ZONAL CF TRACES: data/packs/cf-gb2/ (manifest
+# cf-gb2-1985-2024.sha256), the reviewed zone-internal weighted means.
+# ADOPTED SPLIT CONVENTION (report §3 convention 2, supervisor decision
+# 2026-07-04 on review condition 1): onshore capacity splits by the
+# OBSERVED DESNZ end-2024 share 0.6997 (10,281.06/14,693.90 MW) — the
+# cluster share 0.7361 OVERSTATED Scottish onshore energy (model 73.4 %
+# vs observed 69.8 %, anti-conservative for Q2/Q10); the adopted split
+# reproduces the observed zonal energy (69.7 % vs 69.8 %) at a GB-energy
+# cost of +0.05 % (2024). Offshore and solar keep the cluster shares
+# (0.209150 — inside the observed 20.3–25.6 % bracket; 0.026738 =
+# 0.5/18.7 GW). NAMED WEDGE carried to the flow gates: the end-2024-
+# fleet full-year convention overstates 2024 Scottish offshore energy
+# (observed 2024 offshore ENERGY share 14.7 % vs model ~21.5 % — Moray
+# West/NnG commissioning), up to ~3 TWh of 2024-specific southward
+# pressure. 2024 zonal mean CFs (cf-gb2 pack): onshore sco 0.2917 /
+# rgb 0.2956; offshore sco 0.3627 / rgb 0.3505; solar sco 0.0750 /
+# rgb 0.0852.
+#
+# ATTRIBUTION: "Supported by National Energy SO Open Data" (NESO DA
+# flows/limits, interconnector register); DESNZ Regional Renewable
+# Statistics / Energy Trends (OGL v3.0); "Contains modified Copernicus
+# Climate Change Service information [2024]" (ERA5 traces).
+#
+# Everything not stated here (availability calibrations, wedges,
+# storage parameters) is byte-carried from gb-2024-reference.toml and
+# cited there. The [pricing] block is not carried (dispatch gates only,
+# the 5-zone precedent). The exogenous PS trace + active stores tension
+# is the reference scenario's documented posture.
+
+schema_version = 8   # v8: version line only (no heating resource_depth_m set; docs/03 migration)
+name = "GB-2024-2zone"
+description = "GB 2024 reference split Scotland/rest-of-GB with the B6 boundary as the single internal link, export capability = observed 2024 DA limit series — the B6 validation scenario"
+
+[horizon]
+start = "2024-01-01T00:00:00Z"   # UTC, half-hourly periods (17,568; leap year)
+end   = "2024-12-31T23:30:00Z"
+weather_years = [2024]
+
+# =====================================================================
+# SCO — Scotland. Shares: report §2 table (every capacity cited there).
+# =====================================================================
+
+[[zones]]
+id = "SCO"
+
+[zones.demand]
+base_profile = "data/packs/2024/processed/demand_2024.parquet"
+column = "underlying_demand"
+# Flat demand share (header): 10.1 % of GB underlying demand.
+annual_scale = 0.101
+# Station transformer load, pro-rata: 0.101 x 0.667.
+extra_demand_gw = 0.067367
+
+[[zones.exogenous_supply]]
+label = "net_imports"
+# Moyle ONLY — the sole external link landing in Scotland (header
+# convention; NESO Interconnector Register: Auchencrosh 275 kV).
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = ["intirl"]
+imports = true
+reliability = "variable"
+
+[[zones.exogenous_supply]]
+label = "pumped_storage_net"
+# National FUELHH ps split by PS power share (header): 740/2,828 MW.
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = ["ps"]
+scale = 0.2617
+reliability = "excluded"
+
+[[zones.exogenous_supply]]
+label = "other"
+# FUELHH "other" split by demand share (header).
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = ["other"]
+scale = 0.101
+reliability = "firm"
+
+# --- Dispatchable (availability calibrations byte-carried from the
+# --- reference scenario; applying the same GB profile to both zones
+# --- conserves GB energy — Torness-specific outage timing is a stated
+# --- limitation of the split, not re-derived) ---
+
+[[zones.fleet]]
+technology = "nuclear"
+capacity_gw = 1.19               # Torness ~1,190 MW (20.2 % of 5.9 GW); Hunterston B ceased 2022
+[zones.fleet.availability]
+monthly = [
+  0.5569, 0.6379, 0.6408, 0.8721, 0.8245, 0.7963,
+  0.7736, 0.8839, 0.7991, 0.6869, 0.7114, 0.6935,
+]
+
+[[zones.fleet]]
+technology = "ccgt"
+capacity_gw = 1.18               # Peterhead 1,180 MW — Scotland's only transmission CCGT
+
+[[zones.fleet]]
+technology = "hydro"
+capacity_gw = 1.68739            # 0.8881 x 1.9 GW (DESNZ MW2024: 1,676/1,888 MW)
+[zones.fleet.availability]
+flat = 0.2147
+
+# No Scottish OCGT, biomass (transmission) or coal: 0 GW entries are
+# omitted (report §2; Scotland coal-free since Longannet 2016).
+
+# --- Weather-driven (zonal cf-gb2 traces; adopted split, header) ---
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 10.07568           # 0.6997 (DESNZ) x 14.4 GW
+capacity_factor_trace = "data/packs/cf-gb2/sco_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 3.074505           # 0.209150 (cluster share) x 14.7 GW
+capacity_factor_trace = "data/packs/cf-gb2/sco_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 0.5                # 0.026738 (cluster share) x 18.7 GW = 0.5 GW exactly
+capacity_factor_trace = "data/packs/cf-gb2/sco_solar_cf_2024.parquet"
+
+# --- Storage (station data is the citation; report §2: PS power sums
+# --- to 2.828 GW / 23.9 GWh vs the reference's rounded 2.8 / 24.0 —
+# --- the station arithmetic is kept. Batteries: REPD share 0.1455 on
+# --- the reference 4.7 GW / 6.6 GWh; no zonal duration evidence, so
+# --- energy splits by the same share — stated) ---
+
+[[zones.storage]]
+kind = "pumped_hydro"
+power_gw = 0.74                  # Cruachan 440 + Foyers 300 MW
+energy_gwh = 13.4                # 7.1 + 6.3 GWh
+round_trip_efficiency = 0.76
+dispatch_order = 1
+
+[[zones.storage]]
+kind = "battery"
+power_gw = 0.68385               # 0.1455 (REPD end-2024) x 4.7 GW
+energy_gwh = 0.9603              # 0.1455 x 6.6 GWh
+round_trip_efficiency = 0.88
+dispatch_order = 2
+
+# =====================================================================
+# RGB — England + Wales: the GB reference minus the Scottish split.
+# =====================================================================
+
+[[zones]]
+id = "RGB"
+
+[zones.demand]
+base_profile = "data/packs/2024/processed/demand_2024.parquet"
+column = "underlying_demand"
+annual_scale = 0.899
+extra_demand_gw = 0.599633       # 0.899 x 0.667
+
+[[zones.exogenous_supply]]
+label = "net_imports"
+# All external links landing in England/Wales (header convention):
+# IFA, IFA2, ElecLink, BritNed, Nemo, NSL (Blyth — England), Viking,
+# EWIC (Deeside — Wales), Greenlink (Pembroke — Wales).
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = [
+  "intelec", "intew", "intfr", "intgrnl", "intifa2",
+  "intned", "intnem", "intnsl", "intvkl",
+]
+imports = true
+reliability = "variable"
+
+[[zones.exogenous_supply]]
+label = "pumped_storage_net"
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = ["ps"]
+scale = 0.7383
+reliability = "excluded"
+
+[[zones.exogenous_supply]]
+label = "other"
+path = "data/packs/2024/processed/generation_by_fuel_2024.parquet"
+columns = ["other"]
+scale = 0.899
+reliability = "firm"
+
+# --- Dispatchable ---
+
+[[zones.fleet]]
+technology = "ccgt"
+capacity_gw = 28.82              # 30.0 - Peterhead 1.18
+
+[[zones.fleet]]
+technology = "ocgt"
+capacity_gw = 1.0                # all England/Wales (report §2)
+
+[[zones.fleet]]
+technology = "nuclear"
+capacity_gw = 4.71               # Heysham 1+2, Hartlepool, Sizewell B
+[zones.fleet.availability]
+monthly = [
+  0.5569, 0.6379, 0.6408, 0.8721, 0.8245, 0.7963,
+  0.7736, 0.8839, 0.7991, 0.6869, 0.7114, 0.6935,
+]
+
+[[zones.fleet]]
+technology = "biomass"
+capacity_gw = 3.5                # Drax/Lynemouth/MGT — all England
+[zones.fleet.availability]
+flat = 0.6116
+
+[[zones.fleet]]
+technology = "coal"
+capacity_gw = 2.0                # Ratcliffe-on-Soar (England), closed 2024-09-30
+[zones.fleet.availability]
+monthly = [
+  0.11929, 0.11929, 0.11929, 0.11929, 0.11929, 0.11929,
+  0.11929, 0.11929, 0.11929, 0.0, 0.0, 0.0,
+]
+
+[[zones.fleet]]
+technology = "hydro"
+capacity_gw = 0.21261            # 1.9 - 1.68739
+[zones.fleet.availability]
+flat = 0.2147
+
+# --- Weather-driven ---
+
+[[zones.fleet]]
+technology = "onshore_wind"
+capacity_gw = 4.32432            # 14.4 - 10.07568
+capacity_factor_trace = "data/packs/cf-gb2/rgb_onshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "offshore_wind"
+capacity_gw = 11.625495          # 14.7 - 3.074505
+capacity_factor_trace = "data/packs/cf-gb2/rgb_offshore_cf_2024.parquet"
+
+[[zones.fleet]]
+technology = "solar"
+capacity_gw = 18.2               # 18.7 - 0.5
+capacity_factor_trace = "data/packs/cf-gb2/rgb_solar_cf_2024.parquet"
+
+# --- Storage ---
+
+[[zones.storage]]
+kind = "pumped_hydro"
+power_gw = 2.088                 # Dinorwig 1,728 + Ffestiniog 360 MW (Wales)
+energy_gwh = 10.5                # 9.1 + 1.4 GWh
+round_trip_efficiency = 0.76
+dispatch_order = 1
+
+[[zones.storage]]
+kind = "battery"
+power_gw = 4.01615               # 4.7 - 0.68385
+energy_gwh = 5.6397              # 6.6 - 0.9603
+round_trip_efficiency = 0.88
+dispatch_order = 2
+
+# =====================================================================
+# The B6 link — the review §6 ruling, configuration (a), verbatim
+# (header). loss = 0: B6 is an intra-GB AC boundary; the schema `loss`
+# models the HVDC sending/receiving-end metering wedge, which does not
+# apply here. availability = 1.0: the observed limit series IS the
+# derated operational capability.
+# =====================================================================
+
+[[links]]
+name = "B6"
+from = "SCO"
+to = "RGB"
+capacity_gw = 4.1                # forward central (2024 median observed DA limit) — superseded per period by the trace below on this 2024 run
+reverse_capacity_gw = 3.5        # import (RGB->SCO): HARETORIM 2021-22 median, vintage stated (header)
+availability = 1.0
+loss = 0.0
+
+[links.capability_trace]
+path = "data/packs/b6/processed/b6_da_flows_limits.parquet"
+column = "limit_mw"
+sentinel_high_mw = 9999.0        # NESO "no constraint recorded" sentinel (116 periods in 2024)
+upper_bound_gw = 6.7             # ETYS planning capability (review condition 4 outstanding — header)
+masked_fill_gw = 4.1             # 2024 median observed limit; fills the 53 zero-sentinel + 354 missing + 3 NaN periods, all masked out of gates
+
+[dispatch]
+policy = "rule_based"
